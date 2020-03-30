@@ -1,7 +1,16 @@
-![Search Pagination](../images/search-pagination-property-pane.png)
+﻿> **This WebPart has been removed since the 3.11.0 version. If you had custom templates and need pagination, add the following code snippet in your template**:
 
-#### Pagination Options
-
-Setting | Description
--------|----
-Connect to search results Web Part | The search results Web Part to use on the current page to get page.
+```
+{{#if @root.paging.showPaging}}
+    <pnp-pagination 
+        total-items="{{@root.paging.totalItemsCount}}" 
+        hide-first-last-pages="{{@root.paging.hideFirstLastPages}}"
+        hide-disabled="{{@root.paging.hideDisabled}}"
+        hide-navigation="{{@root.paging.hideNavigation}}"
+        range="{{@root.paging.pagingRange}}" 
+        items-count-per-page="{{@root.paging.itemsCountPerPage}}" 
+        current-page-number="{{@root.paging.currentPageNumber}}"
+    >
+    </pnp-pagination>
+{{/if}}
+```
