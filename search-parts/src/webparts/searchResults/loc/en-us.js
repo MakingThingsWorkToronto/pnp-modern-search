@@ -166,6 +166,16 @@ define([], function () {
       "DisplayNameColumnLbl": "Name",
       "DescriptionColumnLbl": "Description",
       "SelectedQueryModifierLbl": "Selected query modifier: '{0}'"
+    },
+    /* 
+    * @START_CHANGE
+    */
+    "Enhancements" : {
+      "GroupLabel" : "Enhancements",
+      "LoadAllSearchResultsLabel": "Load All Search Results",
+      "TrimDuplicatesLabel": "Trim Duplicates",
+      "MapIconsLabel": "Map Icons",
+      "RendererLayoutOptions": "Attach Renderers"
     }
   }
 });

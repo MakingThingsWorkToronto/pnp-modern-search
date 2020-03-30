@@ -42,4 +42,9 @@ export interface ISearchResultsWebPartProps {
     queryModifiers: IQueryModifierConfiguration[];
     selectedQueryModifierDisplayName: string;
     refinementFilters: string;
+    /* @START_CHANGE */
+    loadAllSearchResults: boolean;
+    trimDuplicates: boolean;
+    mapIcons: boolean;
+    /* @END_CHANGE ADD PROPERTIES */
 }

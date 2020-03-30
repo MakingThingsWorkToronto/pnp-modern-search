@@ -167,7 +167,18 @@ declare interface ISearchResultsWebPartStrings {
         DisplayNameColumnLbl: string;
         DescriptionColumnLbl: string;
         SelectedQueryModifierLbl: string;
+    },
+    /*
+    * @START_CHANGE
+    */
+    Enhancements : {
+        GroupLabel: string;
+        LoadAllSearchResultsLabel: string;
+        TrimDuplicatesLabel: string;
+        MapIconsLabel: string;
+        RendererLayoutOptions: string;
     }
+    /* @END_CHANGE */
 }
 
 declare module 'SearchResultsWebPartStrings' {

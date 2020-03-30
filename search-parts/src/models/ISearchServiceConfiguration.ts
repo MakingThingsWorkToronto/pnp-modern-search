@@ -52,4 +52,25 @@ export interface ISearchServiceConfiguration {
      * The search query culture
      */
     queryCulture: number;
+
+    /*
+    *   @START_CHANGE - add enhancements to search service
+    */
+    
+    /**
+     * Indicates if we should trim duplicates from the search results
+     */
+    trimDuplicates?: boolean;
+
+    /**
+     * Indicates if we should map the icon within the search provider
+     */
+    mapIcons?: boolean;
+
+    /**
+    * Indicates wheter or not we should load all results 
+    */
+    loadAllSearchResults?: boolean;
+
+    /* @END_CHANGE - add enhancements to search service */
 }

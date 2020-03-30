@@ -250,6 +250,11 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
             refinementFilters: { $set: selectedFilters.length > 0 ? SearchHelper.buildRefinementQueryString(selectedFilters) : [this.properties.refinementFilters.replace(/\'/g,'"')] },
             refiners: { $set: refinerConfiguration },
             queryModifier: { $set: queryModifier },
+            /* @START_CHANGE - ADD ENHANCEMENTS */
+            trimDuplicates: { $set: this.properties.trimDuplicates },
+            mapIcons: { $set: this.properties.mapIcons },
+            loadAllSearchResults: { $set:this.properties.loadAllSearchResults }
+            /* @END_CHANGE - ADD ENHANCEMENTS */
         });
 
         const isValueConnected = !!this.properties.queryKeywords.tryGetSource();
@@ -610,7 +615,13 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
                 {
                     groups: stylingPageGroups,
                     displayGroupsAsAccordion: true
+                },
+                /* @START_CHANGE - add enhancements to the property pane */
+                {
+                    groups: [ this._getEnhancementFieldsGroup() ],
+                    displayGroupsAsAccordion: true
                 }
+                /* @END_CHANGE */
             ]
         };
     }
@@ -1792,4 +1803,39 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
             this.render();
         }
     }
+
+     /**
+     * @START_CHANGE - create enhancements group
+     */
+    private _getEnhancementFieldsGroup(): IPropertyPaneGroup {
+
+        let enhancementFieldsGroup: IPropertyPaneGroup = null;
+
+        if (this._templatePropertyPaneOptions.length > 0) {
+
+            enhancementFieldsGroup = {
+                groupFields: [
+                    PropertyPaneToggle('trimDuplicates', {
+                        label: strings.Enhancements.TrimDuplicatesLabel,
+                        checked: this.properties.trimDuplicates,
+                    }),
+                    PropertyPaneToggle('loadAllSearchResults', {
+                        label: strings.Enhancements.LoadAllSearchResultsLabel,
+                        checked: this.properties.loadAllSearchResults,
+                    }),
+                    PropertyPaneToggle('mapIcons', {
+                        label: strings.Enhancements.MapIconsLabel,
+                        checked: this.properties.mapIcons,
+                    }),
+                ],
+                isCollapsed: false,
+                groupName: strings.Enhancements.GroupLabel
+            };
+        }
+
+        return enhancementFieldsGroup;
+    }
+    /*
+    * @END_CHANGE
+    */
 }

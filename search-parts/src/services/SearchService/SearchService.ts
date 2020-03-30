@@ -38,6 +38,12 @@ class SearchService implements ISearchService {
     private _timeZoneId: number;
     private _queryModifier: BaseQueryModifier;
 
+    /* @START_CHANGE - ENHANCEMENTS */
+    private _trimDuplicates: boolean;
+    private _mapIcons: boolean;
+    private _loadAllSearchResults: boolean;
+    /* @END_CHANGE - ENHANCEMENTS */
+
     public get resultsCount(): number { return this._resultsCount; }
     public set resultsCount(value: number) { this._resultsCount = value; }
 
@@ -76,6 +82,17 @@ class SearchService implements ISearchService {
 
     public get queryModifier(): BaseQueryModifier { return this._queryModifier; }
     public set queryModifier(value: BaseQueryModifier) { this._queryModifier = value; }
+
+    /* @START_CHANGE - ENHANCEMENTS */
+    public set loadAllSearchResults(value: boolean) { this._loadAllSearchResults = value; }
+    public get loadAllSearchResults(): boolean { return this._loadAllSearchResults; }  
+
+    public set trimDuplicates(value: boolean) { this._trimDuplicates = value; }
+    public get trimDuplicates(): boolean { return this._trimDuplicates; }
+
+    public set mapIcons(value: boolean) { this._mapIcons = value; }
+    public get mapIcons(): boolean { return this._mapIcons; }
+    /* @END_CHANGE - ENHANCEMENTS */
 
     private _localPnPSetup: SPRest;
 
@@ -166,7 +183,10 @@ class SearchService implements ISearchService {
 
         searchQuery.RowLimit = this._resultsCount ? this._resultsCount : 50;
         searchQuery.SelectProperties = this._selectedProperties;
-        searchQuery.TrimDuplicates = false;
+        //searchQuery.TrimDuplicates = false;
+        /* @START_CHANGE - TRIM DUPLICATES */
+        searchQuery.TrimDuplicates = this._trimDuplicates;
+        /* @END_CHANGE - TRIM DUPLICATES */
         searchQuery.SortList = this._sortList ? this._sortList : [];
 
         // https://docs.microsoft.com/en-us/previous-versions/office/sharepoint-csom/jj262828(v%3Doffice.15)
@@ -279,9 +299,15 @@ class SearchService implements ISearchService {
 
                     return result;
                 });
-
+                
                 // Map results icon (using batch)
-                searchResults = await this._mapToIcons(searchResults, useOldSPIcons);
+                // searchResults = await this._mapToIcons(searchResults, useOldSPIcons);
+                
+                /* @START_CHANGE - MAP TO ICONS */
+                if(this._mapIcons) {
+                    searchResults = await this._mapToIcons(searchResults, useOldSPIcons);
+                }
+                /* @END_CHANGE - MAP TO ICONS */
 
                 // Map refinement results
                 refinementRows.map((refiner) => {
@@ -377,6 +403,22 @@ class SearchService implements ISearchService {
                 }
 
             }
+
+
+            /*
+            *   @START_CHANGE - LOAD ALL SEARCH RESULTS
+            *   Loads all search results from the search service by recursively calling the search method.
+            */
+           if (this.loadAllSearchResults === true && results && results.RelevantResults.length == this.resultsCount ) { 
+
+                const npsr = await this.search(query, page+1, useOldSPIcons);
+                
+                if(results && !results.RelevantResults) results.RelevantResults = [];
+                if(npsr && npsr.RelevantResults) results.RelevantResults = results.RelevantResults.concat(npsr.RelevantResults);
+
+            }
+            /* @END_CHANGE - LOAD ALL SEARCH RESULTS */
+
             return results;
 
         } catch (error) {
