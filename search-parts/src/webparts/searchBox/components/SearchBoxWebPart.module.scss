@@ -4,10 +4,10 @@
 
     .searchBoxWrapper {
         display: flex;
-        border: 1px solid #c2c2c2;
+        border: 1px solid '[theme:primaryButtonBackground, default:#0078d7]';
 
         &:hover {
-          border-color: #272727;
+          border-color: '[theme:primaryButtonBackgroundHovered, default:#0078d7]';
         }
     }
 
@@ -17,11 +17,11 @@
         border: none;
 
         :global(.ms-SearchBox-field) {
-            color: #272727;
+            color: '[theme:primaryButtonBackground, default:#0078d7]';
         }
 
         :global(.ms-SearchBox-iconContainer) {
-            color: #272727;
+            color: '[theme:primaryButtonBackground, default:#0078d7]';
         }
     }
 
