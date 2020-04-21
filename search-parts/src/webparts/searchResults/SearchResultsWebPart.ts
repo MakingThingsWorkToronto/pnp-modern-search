@@ -1786,28 +1786,25 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
 
         let enhancementFieldsGroup: IPropertyPaneGroup = null;
 
-        if (this._templatePropertyPaneOptions.length > 0) {
-
-            enhancementFieldsGroup = {
-                groupFields: [
-                    PropertyPaneToggle('trimDuplicates', {
-                        label: strings.Enhancements.TrimDuplicatesLabel,
-                        checked: this.properties.trimDuplicates,
-                    }),
-                    PropertyPaneToggle('loadAllSearchResults', {
-                        label: strings.Enhancements.LoadAllSearchResultsLabel,
-                        checked: this.properties.loadAllSearchResults,
-                    }),
-                    PropertyPaneToggle('mapIcons', {
-                        label: strings.Enhancements.MapIconsLabel,
-                        checked: this.properties.mapIcons,
-                    }),
-                ],
-                isCollapsed: false,
-                groupName: strings.Enhancements.GroupLabel
-            };
-        }
-
+        enhancementFieldsGroup = {
+            groupFields: [
+                PropertyPaneToggle('trimDuplicates', {
+                    label: strings.Enhancements.TrimDuplicatesLabel,
+                    checked: this.properties.trimDuplicates,
+                }),
+                PropertyPaneToggle('loadAllSearchResults', {
+                    label: strings.Enhancements.LoadAllSearchResultsLabel,
+                    checked: this.properties.loadAllSearchResults,
+                }),
+                PropertyPaneToggle('mapIcons', {
+                    label: strings.Enhancements.MapIconsLabel,
+                    checked: this.properties.mapIcons,
+                }),
+            ],
+            isCollapsed: false,
+            groupName: strings.Enhancements.GroupLabel
+        };
+        
         return enhancementFieldsGroup;
     }
     /*
