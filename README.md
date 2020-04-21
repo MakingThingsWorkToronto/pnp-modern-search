@@ -2,7 +2,7 @@ This fork allows the end user to:
 
 1) load all search results to the UI.
 
-2) disable batch loading of end user icons.
+2) disable batch loading of application icons.
 
 3) enable trim duplicates functionality.
 
