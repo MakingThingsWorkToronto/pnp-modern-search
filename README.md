@@ -1,3 +1,12 @@
+This fork allows the end user to:
+
+1) load all search results to the UI.
+
+2) disable batch loading of end user icons.
+
+3) enable trim duplicates functionality.
+
+
 ![PnP Modern Search Solution](https://devofficecdn.azureedge.net/media/Default/PnP/sppnp.png)
 
 # PnP Modern Search Solution
