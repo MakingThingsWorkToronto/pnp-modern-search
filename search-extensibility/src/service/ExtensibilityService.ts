@@ -7,8 +7,10 @@ import { ExtensionHelper } from '../utility/ExtensionHelper';
 import { ExtensionTypes } from '../utility/ExtensionTypes';
 import { IExtensionInstance } from '../models/instance/IExtensionInstance';
 import { IExtensibilityService } from '../models/IExtensibilityService';
+import { IEditorLibrary } from "../models/editors/IEditorLibrary";
 
 const LogSource = "ExtensibilityService";
+const EDITOR_LIBRARY_ID = "b4c35af5-102d-4a2d-a448-4b25a7e66a94";
 
 export class ExtensibilityService implements IExtensibilityService {
 
@@ -20,6 +22,7 @@ export class ExtensibilityService implements IExtensibilityService {
         this._validators[ExtensionTypes.QueryModifer] = ExtensionHelper.IsQueryModifier;
         this._validators[ExtensionTypes.SuggestionProvider] = ExtensionHelper.IsSuggestionProvider;
         this._validators[ExtensionTypes.HandlebarsHelper] = ExtensionHelper.IsHandlebarsHelper;
+        this._validators[ExtensionTypes.Refiner] = ExtensionHelper.IsRefiner;
 
     }
 
@@ -32,9 +35,7 @@ export class ExtensibilityService implements IExtensibilityService {
 
         try {
 
-            Log.info(LogSource, `Loading extensibility library: ${id.toString()}`);
-            const libraryComponent: any = await SPComponentLoader.loadComponentById(id.toString());
-            Log.info(LogSource, `Library loaded: ${id.toString()}`);
+            const libraryComponent = await this.tryLoadLibrary(id);
 
             // Parse the library component properties to instanciate the library itself. 
             // This way, we are not depending on a naming convention for the entry point name. We depend only on the component ID
@@ -57,12 +58,22 @@ export class ExtensibilityService implements IExtensibilityService {
             const msg = `Error loading extensibility library: ${id.toString()}. Details: ${error}`;
             Log.info(LogSource, msg);
             Log.error(LogSource, error);
-            console.log(msg);
-            console.log(error);
             return null;
             
         }
     }
+
+    /**
+     * Load a component library
+     * @param id: The guid of the library to load
+     */
+    private async tryLoadLibrary(id: Guid) : Promise<any> {
+        Log.info(LogSource, `Loading extensibility library: ${id.toString()}`);
+        const libraryComponent: any = await SPComponentLoader.loadComponentById(id.toString());
+        Log.info(LogSource, `Library loaded: ${id.toString()}`);
+        return libraryComponent;
+    }
+
 
     /**
      * Loads extensibility libraries specified by users
@@ -154,5 +165,31 @@ export class ExtensibilityService implements IExtensibilityService {
         return [];
         
     }
+
+    public async getEditorLibrary() : Promise<IEditorLibrary> {
+
+        let library: any = undefined;
+        const editLibrary = await this.tryLoadLibrary(Guid.parse(EDITOR_LIBRARY_ID));
+        const libraryMainEntryPoints = Object.keys(editLibrary).filter(property => {
+            // Return the library main entry point object by checking the prototype methods. They should be matching the IEditorLibrary interface.
+            return property.indexOf('__') === -1 
+                && editLibrary[property].prototype.getExtensibilityEditor
+                && editLibrary[property].prototype.getRefinersEditor
+                && editLibrary[property].prototype.getSearchManagedPropertiesEditor
+                && editLibrary[property].prototype.getPropertyPaneSearchManagedProperties
+                && editLibrary[property].prototype.getTemplateValueFieldEditor;
+        });
+
+        if (libraryMainEntryPoints.length === 1) {
+            Log.info(LogSource, `Library loaded, creating instance!`);
+            library = new editLibrary[libraryMainEntryPoints[0]]();
+        } else {
+            Log.info(LogSource, `Cannot find edit library entry point!`);
+        }
+
+        return library as IEditorLibrary;
+
+    }
+
 
 }

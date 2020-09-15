@@ -1,8 +1,7 @@
-import { IRefinementResult, IRefinementValue, IRefinementFilter } from "search-extensibility";
-import IRefinerConfiguration from "../../../../models/IRefinerConfiguration";
-import RefinementFilterOperationCallback from "../../../../models/RefinementValueOperationCallback";
-import IUserService from '../../../../services/UserService/IUserService';
+import { IRefinementResult, IRefinerConfiguration, IRefinementFilter } from "search-extensibility";
+import { RefinementFilterOperationCallback, IUserService } from 'search-extensibility';
 import { IReadonlyTheme } from "@microsoft/sp-component-base";
+import BaseTemplateService from "../../../../services/TemplateService/BaseTemplateService";
 
 interface IFilterLayoutProps {
 
@@ -52,6 +51,11 @@ interface IFilterLayoutProps {
   userService: IUserService;
 
   /**
+   * Template Service
+   */
+  templateService: BaseTemplateService;
+  
+  /**
    * The current theme variant
    */
   themeVariant: IReadonlyTheme | undefined;
@@ -60,6 +64,21 @@ interface IFilterLayoutProps {
    * Content class name
    */
   contentClassName: string;
+
+  /**
+   * Instance id
+   */
+  instanceId: string;
+
+  /**
+   * Web Url
+   */
+  webUrl: string;
+
+  /**
+   * Site Url
+   */
+  siteUrl:string;
   
 }
 

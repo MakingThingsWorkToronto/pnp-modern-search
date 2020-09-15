@@ -160,7 +160,6 @@ define([], function() {
             "PersonaSizeLarge": "Stor",
             "PersonaSizeExtraLarge": "Extra stor",
         },
-        "ManagedPropertiesListPlaceHolder": "Välj eller lägg till en hanterad egenskap",
         "QueryModifier": {
             "FieldLbl": "Modifiering av sökfråga",
             "ConfigureBtn": "Konfigurera",
@@ -180,6 +179,10 @@ define([], function() {
             "HideNavigationFieldName": "Dölj navigeringsval (föregående sida, nästa sida)",
             "HideFirstLastPagesFieldName": "Dölj första och sista navigeringsval",
             "HideDisabledFieldName": "Dölj navigeringsval (föregående, nästa, första, sista) om de är inaktiverade.",
+        },
+        "Extensibility": {
+            "GroupName": "Third Party Extensibility",
+            "ButtonLabel": "Load Extensibility"
         }
     }
 });

@@ -23,24 +23,13 @@ define([], function () {
     "Refiners": {
       "RefinersFieldLabel": "Einschränkungen",
       "RefinerManagedPropertyField": "Verwaltete Eigenschaft filtern",
-      "RefinerDisplayValueField": "Name des anzuzeigenden Filters",
-      "RefinerTemplateField": "Einschränkungs Vorlage",
       "RefinersFieldDescription": "Gibt verwaltete Eigenschaften an, die als Einschränkungen verwendet werden. Wenn es für eine Filtereigenschaft keine Werte gibt, wird sie nicht im Panel angezeigt.",
       "EditRefinersLabel": "Einschränkungen bearbeiten",
-      "AvailableRefinersLabel": "Verfügbare Einschränkungen ",
       "ApplyFiltersLabel": "Anwenden",
       "ClearFiltersLabel": "Löschen",
       "ShowExpanded": "Filter standardmässig erweitern",
       "showValueFilter": "Filter für Einschränkungswerte anzeigen",
       "Templates": {
-        "RefinementItemTemplateLabel": "Standard-Einschränkungselement",
-        "MutliValueRefinementItemTemplateLabel": "Mehrwertiges Einschränkungselement",
-        "PersonaRefinementItemLabel": "Persona",
-        "DateRangeRefinementItemLabel": "Datumsbereich",
-        "FixedDateRangeRefinementItemLabel": "Datumsbereich (feste Intervalle)",
-        "FileTypeRefinementItemTemplateLabel": "Dateityp",
-        "FileTypeMutliValueRefinementItemTemplateLabel": "Mehrere Dateitypen",
-        "ContainerTreeRefinementItemTemplateLabel": "Container-Baum",
         "DateFromLabel": "Von",
         "DateTolabel": "An",
         "DatePickerStrings": {
@@ -66,13 +55,11 @@ define([], function () {
           "PastYear": "Vergangenes Jahr",
           "Older": "Älter als 1 Jahr"
         },
-        "RefinerSortTypeLabel": "Einschränkungs Sortiertyp",
-        "RefinerSortTypeAlphabetical": "Alphabetisch",
-        "RefinerSortTypeByNumberOfResults": "Nach Anzahl der Ergebnisse",
-        "RefinerSortTypeSortOrderLabel": "Sortierreihenfolge",
-        "RefinerSortTypeSortDirectionAscending": "Aufsteigend",
-        "RefinerSortTypeSortDirectionDescending": "Absteigend"
       }
     },
+    "Extensibility": {
+        "GroupName": "Erweiterbarkeit durch Dritte",
+        "ButtonLabel": "Ladeerweiterbarkeit"
+    }
   }
 });

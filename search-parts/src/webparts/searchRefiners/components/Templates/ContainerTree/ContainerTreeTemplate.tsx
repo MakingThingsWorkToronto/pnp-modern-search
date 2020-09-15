@@ -1,8 +1,6 @@
 import * as React from 'react';
-import IBaseRefinerTemplateProps from '../IBaseRefinerTemplateProps';
-import IBaseRefinerTemplateState from '../IBaseRefinerTemplateState';
-import { IRefinementValue, RefinementOperator } from "search-extensibility";
-import * as update from 'immutability-helper';
+import { IRefinerProps, IRefinerState, IRefinementValue, RefinementOperator } from "search-extensibility";
+import update from 'immutability-helper';
 import { INavLink, Nav, Icon, ITheme } from 'office-ui-fabric-react';
 import { cloneDeep, find } from "@microsoft/sp-lodash-subset";
 import { UrlHelper } from '../../../../../helpers/UrlHelper';
@@ -11,7 +9,7 @@ import { CssHelper } from '../../../../../helpers/CssHelper';
 //CSS
 import styles from './ContainerTreeTemplate.module.scss';
 
-export interface IFoldersTemplateProps extends IBaseRefinerTemplateProps {
+export interface IFoldersTemplateProps extends IRefinerProps {
 
     /**
      * Flag indicating if the associated refiner should be displayed as expanded
@@ -19,7 +17,7 @@ export interface IFoldersTemplateProps extends IBaseRefinerTemplateProps {
     showExpanded: boolean;
 }
 
-export interface IFoldersTemplateState extends IBaseRefinerTemplateState {
+export interface IFoldersTemplateState extends IRefinerState {
 
     /**
      * The navigation links to display
@@ -187,7 +185,7 @@ export default class ContainerTreeTemplate extends React.Component<IFoldersTempl
         this.buildContainerStructureFromFilterValues(this.props.refinementResult.Values);
     }
 
-    public async UNSAFE_componentWillReceiveProps(nextProps: IBaseRefinerTemplateProps) {
+    public async UNSAFE_componentWillReceiveProps(nextProps: IRefinerProps) {
 
         if (nextProps.shouldResetFilters) {
             this.setState({

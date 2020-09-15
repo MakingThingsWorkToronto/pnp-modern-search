@@ -4,17 +4,17 @@ import ISearchService from '../SearchService/ISearchService';
 import ResultsLayoutOption from '../../models/ResultsLayoutOption';
 import { ISearchResultsWebPartProps } from '../../webparts/searchResults/ISearchResultsWebPartProps';
 import { IPropertyPaneField, PropertyPaneToggle, PropertyPaneSlider } from '@microsoft/sp-property-pane';
-import { IDetailsListColumnConfiguration } from '../../components/DetailsListComponent';
+import { IDetailsListColumnConfiguration } from '../../components/search-results/DetailsListComponent';
 import { PropertyFieldCollectionData, CustomCollectionFieldType } from '@pnp/spfx-property-controls/lib/PropertyFieldCollectionData';
 import * as React from 'react';
-import { TemplateValueFieldEditor, ITemplateValueFieldEditorProps } from '../../controls/TemplateValueFieldEditor/TemplateValueFieldEditor';
 import * as strings from 'SearchResultsWebPartStrings';
 import { IComboBoxOption } from 'office-ui-fabric-react/lib/ComboBox';
 import { Icon, IIconProps } from 'office-ui-fabric-react/lib/Icon';
-import { ISliderOptions } from '../../components/SliderComponent';
+import { ISliderOptions } from '../../components/search-results/SliderComponent';
 import { cloneDeep } from '@microsoft/sp-lodash-subset';
 import { WebPartContext } from "@microsoft/sp-webpart-base";
 import { PropertyPaneChoiceGroup } from "@microsoft/sp-property-pane";
+import { ITimeZoneBias, IExtensibilityService, IEditorLibrary } from "search-extensibility";
 
 const PEOPLE_RESULT_SOURCEID = 'b09a7990-05ea-4af9-81ef-edfab16c4e31';
 
@@ -50,20 +50,24 @@ export class TemplateService extends BaseTemplateService {
 
     private _spHttpClient: SPHttpClient;
     private _searchService: ISearchService;
+    private _extensibilityService: IExtensibilityService;
+    private _templateEditor = null;
 
     /**
      * The list of available managed managed properties (managed globally for all proeprty pane fiels if needed)
      */
     private _availableManagedProperties: IComboBoxOption[];
 
-    constructor(spHttpClient: SPHttpClient, locale: string, searchService: ISearchService, timeZoneBias?: any, ctx?: WebPartContext) {
+    constructor(spHttpClient: SPHttpClient, locale: string, searchService: ISearchService, extensibilityService: IExtensibilityService, timeZoneBias?: ITimeZoneBias, ctx?: WebPartContext) {
 
         super(ctx, searchService);
 
         this._searchService = searchService;
+        this._extensibilityService = extensibilityService;
         this._spHttpClient = spHttpClient;
         this.CurrentLocale = locale;
         this.TimeZoneBias = timeZoneBias;
+        
     }
 
     /**
@@ -218,7 +222,7 @@ export class TemplateService extends BaseTemplateService {
                         required: true,
                         onCustomRender: (field, value, onUpdate, item, itemId, onCustomFieldValidation) => {
                             return React.createElement("div", { key: `${field.id}-${itemId}` }, 
-                                React.createElement(TemplateValueFieldEditor, {
+                                React.createElement(this._templateEditor, {
                                     currentItem: item,
                                     field: field,
                                     useHandlebarsExpr: item.useHandlebarsExpr,
@@ -236,7 +240,7 @@ export class TemplateService extends BaseTemplateService {
                                     searchService: this._searchService,
                                     validateSortable: false,
                                     onCustomFieldValidation: onCustomFieldValidation
-                                } as ITemplateValueFieldEditorProps)
+                                })
                             );
                         }
                     },
@@ -367,7 +371,7 @@ export class TemplateService extends BaseTemplateService {
                         title: strings.TemplateParameters.PlaceholderValueFieldLabel,
                         onCustomRender: (field, value, onUpdate, item, itemId, onCustomFieldValidation) => {
                             return React.createElement("div", { key: `${field.id}-${itemId}` }, 
-                                React.createElement(TemplateValueFieldEditor, {
+                                React.createElement(this._templateEditor, {
                                     currentItem: item,
                                     field: field,
                                     useHandlebarsExpr: item.useHandlebarsExpr,
@@ -385,7 +389,7 @@ export class TemplateService extends BaseTemplateService {
                                     searchService: this._searchService,
                                     validateSortable: false,
                                     onCustomFieldValidation: onCustomFieldValidation
-                                } as ITemplateValueFieldEditorProps)
+                                })
                             );
                         }
                     },
@@ -532,7 +536,7 @@ export class TemplateService extends BaseTemplateService {
                         title: strings.TemplateParameters.PlaceholderValueFieldLabel,
                         onCustomRender: (field, value, onUpdate, item, itemId, onCustomFieldValidation) => {
                             return React.createElement("div", { key: `${field.id}-${itemId}` }, 
-                                React.createElement(TemplateValueFieldEditor, {
+                                React.createElement(this._templateEditor, {
                                     currentItem: item,
                                     field: field,
                                     useHandlebarsExpr: item.useHandlebarsExpr,
@@ -550,7 +554,7 @@ export class TemplateService extends BaseTemplateService {
                                     searchService: this._searchService,
                                     validateSortable: false,
                                     onCustomFieldValidation: onCustomFieldValidation
-                                } as ITemplateValueFieldEditorProps)
+                                })
                             );
                         }
                     },
@@ -599,4 +603,14 @@ export class TemplateService extends BaseTemplateService {
             }
         });       
     }
+
+    public async loadPropertyPaneResources() : Promise<void> {
+
+        if(!this._templateEditor) {
+            const lib : IEditorLibrary = await this._extensibilityService.getEditorLibrary();
+            this._templateEditor = lib.getTemplateValueFieldEditor();
+        }
+
+    }
+
 }

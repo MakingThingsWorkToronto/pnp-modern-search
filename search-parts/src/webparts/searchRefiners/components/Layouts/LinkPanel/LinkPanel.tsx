@@ -3,7 +3,7 @@ import ILinkPanelProps from './ILinkPanelProps';
 import ILinkPanelState from './ILinkPanelState';
 import { Panel, PanelType } from 'office-ui-fabric-react/lib/Panel';
 import { Label } from 'office-ui-fabric-react/lib/Label';
-import * as update from 'immutability-helper';
+import update from 'immutability-helper';
 import {
   GroupedList,
   IGroup,
@@ -15,13 +15,13 @@ import { ActionButton } from 'office-ui-fabric-react/lib/Button';
 import styles from './LinkPanel.module.scss';
 import * as strings from 'SearchRefinersWebPartStrings';
 import TemplateRenderer from '../../Templates/TemplateRenderer';
-import { IRefinementResult, IRefinementValue } from 'search-extensibility';
-import IRefinerConfiguration from '../../../../../models/IRefinerConfiguration';
+import { IRefinementValue, IRefinerConfiguration, IRefinementResult, RefinerTemplateOption } from 'search-extensibility';
 import IFilterLayoutProps from '../IFilterLayoutProps';
 import { isEqual } from '@microsoft/sp-lodash-subset';
 import { Icon } from 'office-ui-fabric-react/lib/Icon';
 import { Text as TextUI } from 'office-ui-fabric-react/lib/Text';
 import { CssHelper } from '../../../../../helpers/CssHelper';
+import ISearchRefinersTemplateContext from '../../Templates/CustomTemplate/ISearchRefinersTemplateContext';
 
 export default class LinkPanel extends React.Component<ILinkPanelProps, ILinkPanelState> {
 
@@ -274,7 +274,7 @@ export default class LinkPanel extends React.Component<ILinkPanelProps, ILinkPan
       const selectedFilterValues = selectedFilter.length === 1 ? selectedFilter[0].Values : [];
 
       // Check if the value to remove concerns this refinement result
-      let valueToRemove = null;
+      let valueToRemove : IRefinementValue = null;
       if (refinementValueToRemove) {
         if (refinementResult.Values.filter(value => {
           return value.RefinementToken === refinementValueToRemove.RefinementToken || refinementResult.FilterName === refinementValueToRemove.RefinementName;
@@ -283,21 +283,27 @@ export default class LinkPanel extends React.Component<ILinkPanelProps, ILinkPan
           valueToRemove = refinementValueToRemove;
         }
       }
+      const templateType = !!configuredFilter[0] ? configuredFilter[0].template : null;
+      const filterConfig = !!configuredFilter[0] ? configuredFilter[0] : null;
+      const context = this._createRefinerContext(i, filterConfig, refinementResult, selectedFilterValues, valueToRemove,templateType);
 
       items.push(
         <TemplateRenderer
           key={i}
           refinementResult={refinementResult}
-          refinerConfiguration={!!configuredFilter[0] ? configuredFilter[0] : null}
+          refinerConfiguration={filterConfig}
           shouldResetFilters={props.shouldResetFilters}
-          templateType={configuredFilter[0].template}
+          templateType={templateType}
           valueToRemove={valueToRemove}
           onFilterValuesUpdated={props.onFilterValuesUpdated}
           language={props.language}
           themeVariant={props.themeVariant}
           selectedValues={selectedFilterValues}
           userService={this.props.userService}
+          templateService={this.props.templateService}
           showValueFilter={configuredFilter[0].showValueFilter}
+          instanceId={this.props.instanceId}
+          refinerContext={context}
         />
       );
     });
@@ -306,4 +312,30 @@ export default class LinkPanel extends React.Component<ILinkPanelProps, ILinkPan
       items: update(this.state.items, { $set: items })
     });
   }
+
+  private _createRefinerContext(key:number, 
+    config: IRefinerConfiguration, 
+    refiners: IRefinementResult,
+    selectedRefiners: IRefinementValue[],
+    valueToRemove: IRefinementValue,
+    templateType: RefinerTemplateOption): ISearchRefinersTemplateContext {
+
+    return {
+      key: key,
+      configuration: config,
+      refiners: refiners,
+      selectedRefiners: selectedRefiners,
+      strings: strings,
+      webUrl: this.props.webUrl,
+      siteUrl: this.props.siteUrl,
+      themeVariant: this.props.themeVariant,
+      instanceId: this.props.instanceId,
+      shouldResetFilters: this.props.shouldResetFilters,
+      language: this.props.language,
+      valueToRemove: valueToRemove,
+      templateType:templateType
+    };
+
+  }
+  
 }

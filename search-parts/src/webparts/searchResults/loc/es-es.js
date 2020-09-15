@@ -160,7 +160,6 @@ define([], function() {
             "PersonaSizeLarge": "Large",
             "PersonaSizeExtraLarge": "Extra large"
         },
-        "ManagedPropertiesListPlaceHolder": "Select or add a managed property",
         "QueryModifier": {
             "FieldLbl": "Modificador de consulta",
             "ConfigureBtn": "Configurador",
@@ -180,6 +179,10 @@ define([], function() {
             "HideNavigationFieldName": "Hide navigation buttons (prev page, next page)",
             "HideFirstLastPagesFieldName": "Hide first/last navigation buttons",
             "HideDisabledFieldName": "Hide navigation buttons (prev, next, first, last) if they are disabled.",
+        },
+        "Extensibility": {
+            "GroupName": "Third Party Extensibility",
+            "ButtonLabel": "Load Extensibility"
         }
     }
 });

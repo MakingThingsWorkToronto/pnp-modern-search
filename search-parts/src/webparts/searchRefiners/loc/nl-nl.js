@@ -23,24 +23,13 @@ define([], function() {
         "Refiners": {
             "RefinersFieldLabel": "Verfijningen",
             "RefinerManagedPropertyField": "Filter beheerde eigenschap",
-            "RefinerDisplayValueField": "Filter naam om te tonen",
-            "RefinerTemplateField": "Verfijningssjabloon",
             "RefinersFieldDescription": "Specificeer de eigenschappen die als verfijner moeten worden getoond. Lege filters worden niet getoond.",
             "EditRefinersLabel": "Bewerk verfijners",
-            "AvailableRefinersLabel": "Beschikbare verfijners",
             "ApplyFiltersLabel": "Toepassen",
             "ClearFiltersLabel": "Opschonen",
             "ShowExpanded": "Vouw filters standaard uit",
             "showValueFilter": "Filter weergeven voor verfijningswaarden",
             "Templates": {
-                "RefinementItemTemplateLabel": "Standaard verfijningsitem",
-                "MutliValueRefinementItemTemplateLabel": "Multi-value verfijningsitem",
-                "PersonaRefinementItemLabel": "Persona",
-                "DateRangeRefinementItemLabel": "Datumbereik",
-                "FixedDateRangeRefinementItemLabel": "Datumbereik (vaste intervallen)",
-                "FileTypeRefinementItemTemplateLabel": "Bestandstypen",
-                "FileTypeMutliValueRefinementItemTemplateLabel": "Meerdere bestandstypen",
-                "ContainerTreeRefinementItemTemplateLabel": "Containerhiërarchie",
                 "DateFromLabel": "Van",
                 "DateTolabel": "Tot",
                 "DatePickerStrings": {
@@ -66,13 +55,11 @@ define([], function() {
                     "PastYear": "Afgelopen jaar",
                     "Older": "Ouder dan een jaar"
                 },
-                "RefinerSortTypeLabel": "Verijning sorteertype",
-                "RefinerSortTypeAlphabetical": "Alfabetisch",
-                "RefinerSortTypeByNumberOfResults": "Aantal resultaten",
-                "RefinerSortTypeSortOrderLabel": "Sorteervolgorde",
-                "RefinerSortTypeSortDirectionAscending": "Oplopend",
-                "RefinerSortTypeSortDirectionDescending": "Aflopend"
             }
         },
+        "Extensibility": {
+            "GroupName": "Aangepaste sjabloon",
+            "ButtonLabel": "Uitbreidbaarheid van de lading"
+        }
     }
 });

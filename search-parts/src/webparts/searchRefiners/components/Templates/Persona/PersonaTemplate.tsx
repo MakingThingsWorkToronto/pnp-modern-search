@@ -7,20 +7,18 @@ import styles from './PersonaTemplate.module.scss';
 import { ITheme } from '@uifabric/styling';
 
 // Thirs party Lib
-import * as update from 'immutability-helper';
+import update from 'immutability-helper';
 
 // Interface
-import { IRefinementValue, RefinementOperator } from "search-extensibility";
-import IBaseRefinerTemplateProps from '../IBaseRefinerTemplateProps';
-import IBaseRefinerTemplateState from '../IBaseRefinerTemplateState';
+import { IRefinerProps, IRefinerState, IRefinementValue, RefinementOperator } from "search-extensibility";
 import { PersonaSize, Persona, Spinner, SpinnerSize, IExtendedPersonaProps, IPersonaProps, TextField, Link } from "office-ui-fabric-react";
 import { IUserInfo } from "../../../../../models/IUser";
 import { CssHelper } from '../../../../../helpers/CssHelper';
 
-export interface IPersonaTemplateProps extends IBaseRefinerTemplateProps {
+export interface IPersonaTemplateProps extends IRefinerProps {
 }
 
-export interface IPersonaTemplateState extends IBaseRefinerTemplateState {
+export interface IPersonaTemplateState extends IRefinerState {
   isLoading: boolean;
   userInfos: IUserInfo[];
 }
@@ -70,7 +68,12 @@ export default class PersonaTemplate extends React.Component<IPersonaTemplatePro
 
                                 // Get the user info from the already fetched list
                                 const userInfos = this.state.userInfos.filter(user => {
+                                  if (user && user.AccountName) {
                                     return user.AccountName.toLowerCase() === accountName.toLowerCase();
+                                  }
+                                  else{
+                                    return false;
+                                  }
                                 });
 
                                 if (userInfos.length > 0) {

@@ -1,11 +1,10 @@
 import { ISearchResults, ISearchVerticalInformation, IRefinementFilter } from 'search-extensibility';
 import { ISearchServiceConfiguration } from '../../models/ISearchServiceConfiguration';
 import { ISearchVertical } from '../../models/ISearchVertical';
-import IManagedPropertyInfo from '../../models/IManagedPropertyInfo';
-import { IContextSearch } from 'search-extensibility';
+import { ISearchContext, IManagedPropertyInfo } from 'search-extensibility';
 import { ISharePointSearch } from './ISharePointSearch';
 
-interface ISearchService extends ISearchServiceConfiguration, IContextSearch {
+interface ISearchService extends ISearchServiceConfiguration, ISearchContext {
 
     /**
      * Perfoms a search query.

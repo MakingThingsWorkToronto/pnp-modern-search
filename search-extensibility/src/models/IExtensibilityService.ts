@@ -1,8 +1,6 @@
-import { IExtensibilityLibrary } from './IExtensibilityLibrary';
 import { Guid } from '@microsoft/sp-core-library';
-import { IExtension } from './IExtension';
-import { ExtensionType } from '../utility/ExtensionTypes';
-import { IExtensionInstance } from './instance/IExtensionInstance';
+import { IExtensibilityLibrary, IExtension, ExtensionType, IExtensionInstance } from '..';
+import { IEditorLibrary } from './editors/IEditorLibrary';
 
 export interface IExtensibilityService {
 
@@ -42,5 +40,9 @@ export interface IExtensibilityService {
      */
     filter<T extends IExtensionInstance>(lookIn: IExtension<ExtensionType>[], extensionType: string) : IExtension<T>[];
 
+    /**
+     * Load the editor library
+     */
+    getEditorLibrary() : Promise<IEditorLibrary>;
     
 }

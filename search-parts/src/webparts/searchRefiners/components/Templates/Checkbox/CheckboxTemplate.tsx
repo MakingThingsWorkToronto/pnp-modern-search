@@ -1,12 +1,10 @@
 import * as React from "react";
-import IBaseRefinerTemplateProps from '../IBaseRefinerTemplateProps';
-import IBaseRefinerTemplateState from '../IBaseRefinerTemplateState';
-import { IRefinementValue, RefinementOperator } from "search-extensibility";
+import { IRefinerProps, IRefinerState, IRefinementValue, RefinementOperator } from "search-extensibility";
 import { Checkbox } from 'office-ui-fabric-react/lib/Checkbox';
 import { Text } from '@microsoft/sp-core-library';
 import { Link } from 'office-ui-fabric-react/lib/Link';
 import * as strings from 'SearchRefinersWebPartStrings';
-import * as update from 'immutability-helper';
+import update from 'immutability-helper';
 import { ITheme } from "@uifabric/styling";
 import { TextField } from "office-ui-fabric-react";
 import { CssHelper } from '../../../../../helpers/CssHelper';
@@ -14,11 +12,11 @@ import { CssHelper } from '../../../../../helpers/CssHelper';
 //CSS
 import styles from './CheckboxTemplate.module.scss';
 
-export default class CheckboxTemplate extends React.Component<IBaseRefinerTemplateProps, IBaseRefinerTemplateState> {
+export default class CheckboxTemplate extends React.Component<IRefinerProps, IRefinerState> {
 
     private _operator: RefinementOperator;
 
-    public constructor(props: IBaseRefinerTemplateProps) {
+    public constructor(props: IRefinerProps) {
         super(props);
 
         this.state = {
@@ -122,7 +120,7 @@ export default class CheckboxTemplate extends React.Component<IBaseRefinerTempla
         });
     }
 
-    public UNSAFE_componentWillReceiveProps(nextProps: IBaseRefinerTemplateProps) {
+    public UNSAFE_componentWillReceiveProps(nextProps: IRefinerProps) {
 
         if (nextProps.shouldResetFilters) {
             this.setState({

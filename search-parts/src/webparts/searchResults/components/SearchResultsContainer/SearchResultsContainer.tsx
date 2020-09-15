@@ -1,3 +1,4 @@
+import './SearchResultsTemplate.scss';
 import * as React from 'react';
 import ISearchResultsContainerProps from './ISearchResultsContainerProps';
 import ISearchResultsContainerState from './ISearchResultsContainerState';
@@ -10,7 +11,7 @@ import { IRefinementValue, IRefinementResult, ISearchResult, ISearchResults } fr
 import { Overlay } from 'office-ui-fabric-react/lib/Overlay';
 import { DisplayMode, Guid } from '@microsoft/sp-core-library';
 import { WebPartTitle } from "@pnp/spfx-controls-react/lib/WebPartTitle";
-import SearchResultsTemplate from '../Layouts/SearchResultsTemplate';
+import SearchTemplate from '../../../../controls/SearchTemplate/SearchTemplate';
 import styles from '../SearchResultsWebPart.module.scss';
 import { SortPanel } from '../SortPanel';
 import { SortDirection, Sort } from "@pnp/sp";
@@ -18,6 +19,7 @@ import { ITermData, ITerm } from '@pnp/sp-taxonomy';
 import LocalizationHelper from '../../../../helpers/LocalizationHelper';
 import { Text } from '@microsoft/sp-core-library';
 import { ILocalizableSearchResultProperty, ILocalizableSearchResult } from '../../../../models/ILocalizableSearchResults';
+import ISearchResultsTemplateContext from './ISearchResultsTemplateContext';
 import * as _ from '@microsoft/sp-lodash-subset';
 import { TemplateService } from '../../../../services/TemplateService/TemplateService';
 import { isEqual } from '@microsoft/sp-lodash-subset';
@@ -50,7 +52,7 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
                 QueryKeywords: '',
                 RefinementResults: [],
                 RelevantResults: [],
-                SecondaryResults: []
+                SecondaryResults: [],
             },
             areResultsLoading: false,
             errorMessage: '',
@@ -111,13 +113,14 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
                 templateContext = { ...templateContext, ...this.props.templateParameters };
 
                 if (placeHolderContent) {
-                    // Load placeholder content
-                    renderShimmerElements = <SearchResultsTemplate
-                        templateService={this.props.templateService}
-                        templateContent={placeHolderContent}
-                        templateContext={templateContext}
-                        instanceId={this.props.instanceId}
-                    />;
+                    
+                    renderShimmerElements = <SearchTemplate<ISearchResultsTemplateContext>
+                            templateService={this.props.templateService}
+                            templateContent={placeHolderContent}
+                            templateContext={templateContext}
+                            instanceId={this.props.instanceId}
+                        />;
+
                 } else {
                     // Use default shimmers
                     renderShimmerElements = this._getShimmerElements();
@@ -186,7 +189,7 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
             let renderSearchResultTemplate = <div></div>;
             if (!this.props.useCodeRenderer) {
                 renderSearchResultTemplate =
-                    <SearchResultsTemplate
+                    <SearchTemplate<ISearchResultsTemplateContext>
                         templateService={this.props.templateService}
                         templateContent={TemplateService.getTemplateMarkup(this.props.templateContent)}
                         templateContext={templateContext}
@@ -217,6 +220,7 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
                 </div>
             </div>
         );
+
     }
 
     public async componentDidMount() {
@@ -267,20 +271,19 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
         let resetSorting = false;
         let selectedPage = this.props.selectedPage || 1;
 
-
         // New props are passed to the component when the search query has been changed
         if (!isEqual(this.props, prevProps)) {
-
             executeSearch = true;
 
             const lastSelectedProperties = (prevProps.searchService.selectedProperties) ? prevProps.searchService.selectedProperties.join(',') : undefined;
-            const lastRefinementFilters = (prevProps.searchService.refinementFilters) ? prevProps.searchService.refinementFilters.join(',') : undefined;            
+            const lastRefinementFilters = (prevProps.searchService.refinementFilters) ? prevProps.searchService.refinementFilters.join(',') : undefined;
             const lastQuery = prevProps.queryKeywords + prevProps.searchService.queryTemplate + lastSelectedProperties + prevProps.searchService.resultSourceId + lastRefinementFilters;
             const nextSelectedProperties = (this.props.searchService.selectedProperties) ? this.props.searchService.selectedProperties.join(',') : undefined;
             const nextRefinementFilters = (this.props.searchService.refinementFilters) ? this.props.searchService.refinementFilters.join(',') : undefined;
             const query = this.props.queryKeywords + this.props.searchService.queryTemplate + nextSelectedProperties + this.props.searchService.resultSourceId + nextRefinementFilters;
 
-            resetSorting = true;
+            const isVerticalSwitch = (this.props.searchService.queryTemplate + this.props.searchService.resultSourceId) !== (prevProps.searchService.queryTemplate + prevProps.searchService.resultSourceId);
+
             this._defaultSortingValues = this._getDefaultSortingValues();
 
             if (lastQuery !== query) {
@@ -289,14 +292,15 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
                 // - A search vertical is selected (i.e. query template is different)
                 // - A new query is performed via the search box of URL trigger (query keywords is different)
                 // - The previous refinement value is equal to the next refinement value (meaning that the update was not triggered by the refinement panel)
-                if(lastRefinementFilters == nextRefinementFilters){
+                if ((lastRefinementFilters == nextRefinementFilters || isVerticalSwitch)) {
                     this.props.searchService.refinementFilters = [];
-                }               
+                }
 
                 // Reset page number
                 selectedPage = 1;
 
-                // Reset the current sort order                
+                // Reset the current sort order
+                resetSorting = true;
             }
 
             if (selectedPage !== prevProps.selectedPage) {
@@ -325,7 +329,7 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
                         if (this._defaultSortingValues.sortField) {
                             this.props.searchService.sortList = [{ Property: this._defaultSortingValues.sortField, Direction: this._defaultSortingValues.sortDirection }];
                         } else {
-                            this.props.searchService.sortList = this._convertToSortList( this.props.sortList );
+                            this.props.searchService.sortList = this._convertToSortList(this.props.sortList);
                         }
                     }
 

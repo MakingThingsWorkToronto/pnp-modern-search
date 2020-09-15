@@ -1,0 +1,64 @@
+@import '~office-ui-fabric-react/dist/sass/References.scss';
+
+.refinerEditorButton {
+    
+    .addButton{ display: block; margin-top: 0.5rem; margin-bottom: 0.5rem; }
+
+}
+
+.refinerEditor {
+    
+    padding-top: 1rem;
+
+    .addContainer { display: block; padding-bottom: 1rem;}
+
+    .addText { display: block; }
+
+    .deleteButton { margin: auto; }
+
+    .refinerHeader { display: flex; align-items: center; cursor: pointer; }
+
+    .refinerMenu { margin-left: auto; }
+
+    .expandCollapse { margin-right: 1rem; }
+
+    .collapseIcon { padding-top: 0.5rem; padding-left: 0.5rem; }
+    
+    .groupList {
+        .newItem,
+        :global(.ms-GroupedList-group) {
+            padding: 0.25rem; margin: 0.25rem 0 0.25rem 0;
+            border: 1px solid '[theme:neutralQuaternary, default:#0078d7]';
+            :global(.ms-List-cell){
+                padding: 0.25rem;
+            }
+        }
+    }
+
+}
+
+.refEditorPanel {
+    
+    :global(.ms-Panel-header) {
+
+       position: absolute;
+       top: 0;
+       left: 0;
+       padding: 1rem;
+       margin: 0; 
+
+       p { padding: 0; margin: 0; }
+
+    }
+
+}
+
+.footerPanel {
+    padding: 1rem 1.5rem 1rem 1.5rem;
+    background: '[theme:white, default:#0078d7]';
+    :global(.ms-Button) { margin-right: 1rem; }
+}
+
+.refCodeEditor {
+    display: block;
+}

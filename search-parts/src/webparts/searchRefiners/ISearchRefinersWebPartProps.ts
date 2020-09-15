@@ -1,5 +1,4 @@
-import IRefinerConfiguration from "../../models/IRefinerConfiguration";
-import RefinersLayoutOption from "../../models/RefinersLayoutOptions";
+import { IRefinerConfiguration, RefinersLayoutOption } from "search-extensibility";
 
 export interface ISearchRefinersWebPartProps {
   webPartTitle: string;
@@ -8,4 +7,5 @@ export interface ISearchRefinersWebPartProps {
   searchResultsDataSourceReference: string;
   selectedLayout: RefinersLayoutOption;
   styles:string;
+  extensibilityLibraries: string[];
 }

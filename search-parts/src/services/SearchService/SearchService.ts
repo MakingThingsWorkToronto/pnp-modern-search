@@ -1,15 +1,13 @@
 //import * as Handlebars from 'handlebars';
 import ISearchService from './ISearchService';
-import { ISearchResults, ISearchResult, IRefinementResult, IRefinementValue, IRefinementFilter, IPromotedResult, ISearchVerticalInformation, ISearchResultBlock } from 'search-extensibility';
-import RefinersSortOption from '../../models/RefinersSortOptions';
-import RefinerSortDirection from '../../models/RefinersSortDirection';
+import { ISearchResults, ISearchResult, IRefinementResult, IRefinementValue, IRefinementFilter, IPromotedResult, ISearchVerticalInformation, ISearchResultBlock,
+    RefinersSortOption, RefinerSortDirection, IRefinerConfiguration, IManagedPropertyInfo } from 'search-extensibility';
 import { sp, SearchQuery, SearchResults, SPRest, Sort, SearchSuggestQuery, SortDirection, Web } from '@pnp/sp';
 import { Logger, LogLevel, ConsoleListener } from '@pnp/logging';
 import { Text, Guid } from '@microsoft/sp-core-library';
-import { sortBy, isEmpty, findIndex } from '@microsoft/sp-lodash-subset';
+import { sortBy, isEmpty} from '@microsoft/sp-lodash-subset';
 import LocalizationHelper from '../../helpers/LocalizationHelper';
 import "@pnp/polyfill-ie11";
-import IRefinerConfiguration from '../../models/IRefinerConfiguration';
 import { ISearchServiceConfiguration } from '../../models/ISearchServiceConfiguration';
 import { ITokenService, TokenService } from '../TokenService';
 import { PageContext } from '@microsoft/sp-page-context';
@@ -18,9 +16,8 @@ import ISynonymTable from '../../models/ISynonym';
 import { JSONParser } from '@pnp/odata';
 import { UrlHelper } from '../../helpers/UrlHelper';
 import { ISearchVertical } from '../../models/ISearchVertical';
-import IManagedPropertyInfo from '../../models/IManagedPropertyInfo';
 import { Loader } from '../TemplateService/LoadHelper';
-import { BaseQueryModifier } from 'search-extensibility';
+import { BaseQueryModifier, ITimeZoneBias } from 'search-extensibility';
 import { ISharePointSearch } from './ISharePointSearch';
 import { trimStart, trimEnd } from '@microsoft/sp-lodash-subset';
 
@@ -41,6 +38,8 @@ class SearchService implements ISearchService {
     private _queryCulture: number;
     private _timeZoneId: number;
     private _queryModifier: BaseQueryModifier;
+
+    public timeZonebias: ITimeZoneBias;
 
     public get resultsCount(): number { return this._resultsCount; }
     public set resultsCount(value: number) { this._resultsCount = value; }
@@ -114,12 +113,47 @@ class SearchService implements ISearchService {
 
         let searchQuery: SearchQuery = {};
         let sortedRefiners: string[] = [];
+        let sortedRefinersCleanName: string[] = [];
         let queryModification: string = null;
 
         // Search paging option is one based
         let page = pageNumber ? pageNumber : 1;
 
         searchQuery.ClientType = 'PnPModernSearch';
+        searchQuery.Properties = [{
+            Name: "EnableDynamicGroups",
+            Value: {
+                BoolVal: true,
+                QueryPropertyValueTypeIndex: 3
+            }
+        }, {
+            Name: "EnableMultiGeoSearch",
+            Value: {
+                BoolVal: true,
+                QueryPropertyValueTypeIndex: 3
+            }
+        }];
+
+        if (this._pageContext.list !== null) {
+            searchQuery.Properties.push({
+                Name: "ListId",
+                Value: {
+                    StrVal: this._pageContext.list.id.toString(),
+                    QueryPropertyValueTypeIndex: 1
+                }
+            });
+        }
+
+        if (this._pageContext.listItem !== null) {
+            searchQuery.Properties.push({
+                Name: "ListItemId",
+                Value: {
+                    StrVal: this._pageContext.listItem.id.toString(),
+                    QueryPropertyValueTypeIndex: 1
+                }
+            });
+        }
+
         searchQuery.Properties = [{
             Name: "EnableDynamicGroups",
             Value: {
@@ -188,26 +222,41 @@ class SearchService implements ISearchService {
 
         if (this.refiners) {
             // Get the refiners order specified in the property pane
+            const refinableDate = /(RefinableDate\d+)|(RefinableDateSingle\d+)|(LastModifiedTime)|(LastModifiedTimeForRetention)|(Created)/gi;
+
+            for (let i = 0; i < this.refiners.length; i++) {
+                const element = this.refiners[i];
+                const res = refinableDate.test(element.refinerName);
+                if (res) {
+                    // load moment
+                    await Loader.LoadHandlebarsHelpers();
+                    break;
+                }
+            }
+
             sortedRefiners = this.refiners.map(e => {
-                let sort = e.refinerSortType == RefinersSortOption.Alphabetical ? "name" : "frequency";
-                let direction = e.refinerSortDirection == RefinerSortDirection.Ascending ? "ascending" : "descending";
-                return `${e.refinerName}(sort=${sort}/${direction})`;
+                // fails to pass into map, so re-init regex
+                const _refinableDate = /(RefinableDate\d+)|(RefinableDateSingle\d+)|(LastModifiedTime)|(LastModifiedTimeForRetention)|(Created)/gi;
+                const res = _refinableDate.test(e.refinerName);
+                if (res) {
+                    // set refiner spec intervals to be used for fixed interval template - and which makes more sense overall
+                    let yesterDay = this._getISOString("days", 1);
+                    let weekAgo = this._getISOString("weeks", 1);
+                    let monthAgo = this._getISOString("months", 1);
+                    let threeMonthsAgo = this._getISOString("months", 3);
+                    let yearAgo = this._getISOString("years", 1);
+                    return `${e.refinerName}(discretize=manual/${yearAgo}/${threeMonthsAgo}/${monthAgo}/${weekAgo}/${yesterDay})`;
+                } else {
+
+                    let sort = e.refinerSortType == RefinersSortOption.Alphabetical ? "name" : "frequency";
+                    let direction = e.refinerSortDirection == RefinerSortDirection.Ascending ? "ascending" : "descending";
+                    return `${e.refinerName}(sort=${sort}/${direction})`;
+                }
+            });
+            sortedRefinersCleanName = this.refiners.map(e=> {
+                return e.refinerName;
             });
             searchQuery.Refiners = sortedRefiners.join(',');
-
-            const refinableDate = /(RefinableDate\d+)(?=,|$)|(RefinableDateSingle\d+)(?=,|$)|(LastModifiedTime)(?=,|$)|(LastModifiedTimeForRetention)(?=,|$)|(Created)(?=,|$)/g;
-            if (refinableDate.test(searchQuery.Refiners)) {
-                // set refiner spec intervals to be used for fixed interval template - and which makes more sense overall
-                await Loader.LoadHandlebarsHelpers();
-
-                let yesterDay = this._getISOString("days", 1);
-                let weekAgo = this._getISOString("weeks", 1);
-                let monthAgo = this._getISOString("months", 1);
-                let threeMonthsAgo = this._getISOString("months", 3);
-                let yearAgo = this._getISOString("years", 1);
-
-                searchQuery.Refiners = searchQuery.Refiners.replace(refinableDate, `$&(discretize=manual/${yearAgo}/${threeMonthsAgo}/${monthAgo}/${weekAgo}/${yesterDay})`);
-            }
         }
 
         if (this.refinementFilters && this.refinementFilters.length > 0 && this.refinementFilters[0].length > 0) {
@@ -326,7 +375,7 @@ class SearchService implements ISearchService {
                 refinementResults = sortBy(refinementResults, (refinement) => {
 
                     // Get the index of the corresponding filter name
-                    return sortedRefiners.indexOf(refinement.FilterName);
+                    return sortedRefinersCleanName.indexOf(refinement.FilterName);
                 });
 
                 results.RelevantResults = searchResults;

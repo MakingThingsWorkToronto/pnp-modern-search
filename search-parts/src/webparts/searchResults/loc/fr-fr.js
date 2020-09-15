@@ -160,7 +160,6 @@ define([], function() {
             "PersonaSizeLarge": "Grand",
             "PersonaSizeExtraLarge": "Très grand"
         },
-        "ManagedPropertiesListPlaceHolder": "Sélectionnez ou ajoutez une propriété gérée",
         "QueryModifier": {
             "FieldLbl": "Modificateurs de requête",
             "ConfigureBtn": "Configurer",
@@ -180,6 +179,10 @@ define([], function() {
             "HideNavigationFieldName": "Cacher/Montrer les boutons de navigation (précédent, suivant, etc.)",
             "HideFirstLastPagesFieldName": "Cacher/Montrer les boutons de navigation 'dernier'/'premier'.",
             "HideDisabledFieldName": "Cacher/Montrer les boutons de navigation si désactivés",
+        },
+        "Extensibility": {
+            "GroupName": "Third Party Extensibility",
+            "ButtonLabel": "Load Extensibility"
         }
     }
 });

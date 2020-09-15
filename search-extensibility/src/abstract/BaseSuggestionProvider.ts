@@ -1,9 +1,6 @@
-import { ISuggestion } from '../models/ISuggestion';
-import { IExtensionContext } from '../models/IExtensionContext';
-import { IExtensionInstance } from '../models/instance/IExtensionInstance';
-import { ExtensionTypes } from "../utility/ExtensionTypes";
+import { ISuggestion, IExtensionContext, ISuggestionProviderInstance, ExtensionTypes } from "..";
 
-export abstract class BaseSuggestionProvider implements IExtensionInstance {
+export abstract class BaseSuggestionProvider implements ISuggestionProviderInstance {
 
   public extensionType: string = ExtensionTypes.SuggestionProvider;
   public context: IExtensionContext;

@@ -1,0 +1,18 @@
+.refiner {
+    margin: 0; padding: 0;
+    .customTemplate,
+    .sortDirection,
+    .sortType,
+    .templateType,
+    .displayName,
+    .isCollapsed,
+    .showValueFilter,
+    .customTemplateUrl,
+    .property {padding: 0.5rem 0 0.5rem 0;}
+
+    padding-bottom: 1rem;
+    margin-bottom: 1rem; 
+    
+    .addButton { display: block;}
+    .errorMessage { margin: 1.5rem 0 0.5rem 0;}
+}

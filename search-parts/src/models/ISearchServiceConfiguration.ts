@@ -1,6 +1,5 @@
 import { Sort } from "@pnp/sp";
-import { IRefinementFilter } from "search-extensibility";
-import IRefinerConfiguration from "./IRefinerConfiguration";
+import { IRefinerConfiguration, IQueryModifierInstance } from "search-extensibility";
 
 export interface ISearchServiceConfiguration {
     /**
@@ -52,4 +51,20 @@ export interface ISearchServiceConfiguration {
      * The search query culture
      */
     queryCulture: number;
+
+    /**
+     * The time zone Id
+     */
+    timeZoneId?: number;
+
+    /**
+     * Include OneDrive results
+     */
+    includeOneDriveResults?: boolean;
+
+    /**
+     * Query modifiers
+     */
+    queryModifier?: IQueryModifierInstance;
+
 }

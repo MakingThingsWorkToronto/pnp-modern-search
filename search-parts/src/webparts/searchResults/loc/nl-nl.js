@@ -160,7 +160,6 @@ define([], function() {
             "PersonaSizeLarge": "Groot",
             "PersonaSizeExtraLarge": "Extra groot"
         },
-        "ManagedPropertiesListPlaceHolder": "Selecteer of voeg een beheerde eigenschap toe",
         "QueryModifier": {
             "FieldLbl": "Modificaties voor zoekopdrachten",
             "ConfigureBtn": "Configure",
@@ -180,6 +179,10 @@ define([], function() {
             "HideNavigationFieldName": "Hide navigation buttons (prev page, next page)",
             "HideFirstLastPagesFieldName": "Hide first/last navigation buttons",
             "HideDisabledFieldName": "Hide navigation buttons (prev, next, first, last) if they are disabled.",
+        },
+        "Extensibility": {
+            "GroupName": "Third Party Extensibility",
+            "ButtonLabel": "Load Extensibility"
         }
     }
 });

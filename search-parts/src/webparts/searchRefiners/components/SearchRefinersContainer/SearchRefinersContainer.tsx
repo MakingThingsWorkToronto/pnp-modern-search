@@ -5,23 +5,19 @@ import { DisplayMode } from '@microsoft/sp-core-library';
 import { WebPartTitle } from "@pnp/spfx-controls-react/lib/WebPartTitle";
 import Vertical from '../Layouts/Vertical/Vertical';
 import LinkPanel from '../Layouts/LinkPanel/LinkPanel';
-import RefinersLayoutOption from '../../../../models/RefinersLayoutOptions';
 import { MessageBarType, MessageBar } from 'office-ui-fabric-react/lib/MessageBar';
 import * as strings from 'SearchRefinersWebPartStrings';
 import { ISearchRefinersContainerState } from './ISearchRefinersContainerState';
-import { IRefinementFilter, IRefinementValue, RefinementOperator } from 'search-extensibility';
-import * as update from 'immutability-helper';
-import RefinerTemplateOption from '../../../../models/RefinerTemplateOption';
+import { RefinerSortDirection, RefinersSortOption, RefinerTemplateOption, RefinersLayoutOption, IRefinementFilter, IRefinementValue, RefinementOperator } from 'search-extensibility';
+import update from 'immutability-helper';
 import { find, isEqual } from '@microsoft/sp-lodash-subset';
-import RefinersSortOption from '../../../../models/RefinersSortOptions';
-import RefinerSortDirection from '../../../../models/RefinersSortDirection';
 import { IReadonlyTheme } from '@microsoft/sp-component-base';
-import { CssHelper } from '../../../../helpers/CssHelper';
-import { TemplateService } from '../../../../services/TemplateService/TemplateService';
 
 export default class SearchRefinersContainer extends React.Component<ISearchRefinersContainerProps, ISearchRefinersContainerState> {
   
-  private _styleMarkup: string = null;
+    private __eventAddFilter = null;
+    private __eventRemoveFilter = null;
+    private __eventRemoveAllFilters = null;
 
     public constructor(props: ISearchRefinersContainerProps) {
         super(props);
@@ -34,6 +30,10 @@ export default class SearchRefinersContainer extends React.Component<ISearchRefi
 
         this.onFilterValuesUpdated = this.onFilterValuesUpdated.bind(this);
         this.onRemoveAllFilters = this.onRemoveAllFilters.bind(this);
+
+        this.__eventAddFilter = this._eventAddFilter.bind(this);
+        this.__eventRemoveFilter = this._eventRemoveFilter.bind(this);
+        this.__eventRemoveAllFilters = this._eventRemoveAllFilters.bind(this);
     }
 
     public render(): React.ReactElement<ISearchRefinersContainerProps> {
@@ -72,7 +72,11 @@ export default class SearchRefinersContainer extends React.Component<ISearchRefi
                         themeVariant={this.props.themeVariant}
                         selectedFilters={this.state.selectedRefinementFilters}
                         userService={this.props.userService}
+                        templateService={this.props.templateService}
                         contentClassName={this.props.contentClassName}
+                        instanceId={this.props.instanceId}
+                        webUrl={this.props.webUrl}
+                        siteUrl={this.props.siteUrl}
                     />;
                     break;
 
@@ -96,7 +100,11 @@ export default class SearchRefinersContainer extends React.Component<ISearchRefi
                         themeVariant={this.props.themeVariant}
                         selectedFilters={this.state.selectedRefinementFilters}
                         userService={this.props.userService}
+                        templateService={this.props.templateService}
                         contentClassName={this.props.contentClassName}
+                        instanceId={this.props.instanceId}
+                        webUrl={this.props.webUrl}
+                        siteUrl={this.props.siteUrl}
                     />;
                     break;
             }
@@ -104,12 +112,17 @@ export default class SearchRefinersContainer extends React.Component<ISearchRefi
 
         return (
             <div style={{ backgroundColor: semanticColors.bodyBackground }}>
+                <div style={{display:"none"}} dangerouslySetInnerHTML={{__html: this.props.styles}}></div>
                 <div className={styles.searchRefiners}>
                     {renderWebPartTitle}
                     {renderWpContent}
                 </div>
             </div>
         );
+    }
+
+    public componentWillUnmount() {
+        this.unbindFilterEvents();
     }
 
     public UNSAFE_componentWillReceiveProps(nextProps: ISearchRefinersContainerProps) {
@@ -198,15 +211,100 @@ export default class SearchRefinersContainer extends React.Component<ISearchRefi
             }
         });
 
+        this.bindFilterEvents();
+
         this.setState({
             availableRefiners: availableFilters
         });
+
     }
 
     public componentDidMount() {
         this.setState({
             availableRefiners: this.props.availableRefiners
         });
+    }
+
+    private _eventRemoveFilter(ev:CustomEvent) : void {
+
+        ev.stopImmediatePropagation();
+        
+        console.log("Remove filter event.");
+
+        const newValues: IRefinementValue[] = [];
+        const refiner: IRefinementValue = ev.detail.refiner; 
+
+        if(this.state.selectedRefinementFilters.some((filter)=>{
+            if(filter.FilterName === refiner.RefinementName) {        
+                filter.Values.map((filterValue)=>{
+                    if(filterValue.RefinementValue !== refiner.RefinementValue) {
+                        newValues.push(filterValue);
+                    }
+                });
+                return true;
+            }
+        })) {
+
+            this.onFilterValuesUpdated(ev.detail.FilterName, newValues, ev.detail.operator);
+
+        }
+
+    }
+
+    private _eventAddFilter(ev:CustomEvent) : void {
+        
+        ev.stopImmediatePropagation();
+        
+        console.log("Add filter value event");
+
+        const newValues: IRefinementValue[] = [ ];
+        const refiner: IRefinementValue = ev.detail.refiner; 
+        const selected : IRefinementFilter = this.state.selectedRefinementFilters.filter((f)=> f.FilterName == refiner.RefinementName)[0];
+        const alreadySelected : boolean = selected
+                    ? selected.Values.some((f)=> f.RefinementValue === refiner.RefinementValue)
+                    : false;
+        const filterConfig = this.props.refinersConfiguration.filter((f)=> f.refinerName === refiner.RefinementName)[0];
+
+        if(!alreadySelected) {
+            
+            newValues.push(refiner);
+
+            this.onFilterValuesUpdated(refiner.RefinementName, newValues, ev.detail.operator);
+        
+        }
+
+    }
+
+    private _eventRemoveAllFilters(ev:CustomEvent) : void {
+
+        ev.stopImmediatePropagation();
+
+        console.log("Remove all filters event");
+
+        this.onRemoveAllFilters();
+
+    }
+
+    /**
+     * Binds events fired by custom templates
+     */
+    private bindFilterEvents() {
+
+        window.addEventListener('removeFilter', this.__eventRemoveFilter);
+        window.addEventListener('addFilter', this.__eventAddFilter);
+        window.addEventListener('removeAllFilters', this.__eventRemoveAllFilters);
+
+    }
+
+    /*
+    * Unbinds events fired by custom templates
+    */
+    private unbindFilterEvents() {
+
+        window.removeEventListener('removeFilter', this.__eventRemoveFilter);
+        window.removeEventListener('addFilter', this.__eventAddFilter);
+        window.removeEventListener('removeAllFilters', this.__eventRemoveAllFilters);
+
     }
 
     /**

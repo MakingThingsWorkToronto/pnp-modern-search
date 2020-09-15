@@ -2,7 +2,7 @@ import 'core-js/features/array';
 import 'core-js/modules/es.string.includes';
 import 'core-js/modules/es.number.is-nan';
 import * as Handlebars from 'handlebars';
-import { ISearchResult, ExtensionHelper, IHandlebarsHelperInstance } from 'search-extensibility';
+import { ISearchResult, ExtensionHelper, IHandlebarsHelperInstance, IRefinementValue, IRefinementFilter } from 'search-extensibility';
 import { isEmpty, uniqBy, uniq, trimEnd, get } from '@microsoft/sp-lodash-subset';
 import * as strings from 'SearchResultsWebPartStrings';
 import { Text } from '@microsoft/sp-core-library';
@@ -21,9 +21,9 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { IReadonlyTheme } from '@microsoft/sp-component-base';
 import groupBy from 'handlebars-group-by';
 import { Loader } from './LoadHelper';
-import { IExtension } from 'search-extensibility';
-import { UrlHelper } from '../../helpers/UrlHelper';
+import { IExtension, ITimeZoneBias } from 'search-extensibility';
 import ISearchService from '../SearchService/ISearchService';
+import { flatten } from 'office-ui-fabric-react';
 
 abstract class BaseTemplateService {
 
@@ -31,7 +31,7 @@ abstract class BaseTemplateService {
     private _search: ISearchService;
 
     public CurrentLocale = "en";
-    public TimeZoneBias = {
+    public TimeZoneBias : ITimeZoneBias = {
         WebBias: 0,
         UserBias: 0,
         WebDST: 0,
@@ -147,6 +147,10 @@ abstract class BaseTemplateService {
         }
     }
 
+    public getTemplateMarkup(templateContent: string): string {
+        return TemplateService.getTemplateMarkup(templateContent);
+    }
+
     /**
      * Gets the placeholder HTML markup in the full template content
      * @param templateContent the full template content
@@ -201,34 +205,51 @@ abstract class BaseTemplateService {
         //https://support.microsoft.com/en-us/office/file-types-supported-for-previewing-files-in-onedrive-sharepoint-and-teams-e054cd0f-8ef2-4ccb-937e-26e37419c5e4
         const validPreviewExt = ["doc", "docm", "docx", "dotm", "dotx", "pot", "potm", "potx", "pps", "ppsm", "ppsx", "ppt", "pptm", "pptx", "vsd", "vsdx", "xls", "xlsb", "xlsx", "3g2", "3gp", "3mf", "ai", "arw", "asf", "bas", "bmp", "cr2", "crw", "csv", "cur", "dcm", "dng", "dwg", "eml", "epub", "erf", "gif", "glb", "gltf", "hcp", "htm", "html", "ico", "icon", "jpg", "key", "log", "m", "m2ts", "m4v", "markdown", "md", "mef", "mov", "movie", "mp4", "mp4v", "mrw", "msg", "mts", "nef", "nrw", "odp", "ods", "odt", "orf", "pages", "pano", "pdf", "pef", "pict", "ply", "png", "psb", "psd", "rtf", "sketch", "stl", "svg", "tif", "tiff", "ts", "wmv", "xbm", "xcf", "xd", "xpm", "zip", "gitconfig", "abap", "ada", "adp", "ahk", "as", "as3", "asc", "ascx", "asm", "asp", "awk", "bash", "bash_login", "bash_logout", "bash_profile", "bashrc", "bat", "bib", "bsh", "build", "builder", "c", "capfile", "cbl", "cc", "cfc", "cfm", "cfml", "cl", "clj", "cls", "cmake", "cmd", "coffee", "cpp", "cpt", "cpy", "cs", "cshtml", "cson", "csproj", "css", "ctp", "cxx", "d", "ddl", "di.dif", "diff", "disco", "dml", "dtd", "dtml", "el", "emakefile", "erb", "erl", "f", "f90", "f95", "fs", "fsi", "fsscript", "fsx", "gemfile", "gemspec", "go", "groovy", "gvy", "h", "h++", "haml", "handlebars", "hh", "hpp", "hrl", "hs", "htc", "hxx", "idl", "iim", "inc", "inf", "ini", "inl", "ipp", "irbrc", "jade", "jav", "java", "js", "json", "jsp", "jsx", "l", "less", "lhs", "lisp", "lst", "ltx", "lua", "make", "markdn", "mdown", "mkdn", "ml", "mli", "mll", "mly", "mm", "mud", "nfo", "opml", "osascript", "out", "p", "pas", "patch", "php", "php2", "php3", "php4", "php5", "pl", "plist", "pm", "pod", "pp", "profile", "properties", "ps1", "pt", "py", "pyw", "r", "rake", "rb", "rbx", "rc", "re", "reg", "rest", "resw", "resx", "rhtml", "rjs", "rprofile", "rpy", "rss", "rst", "rxml", "s", "sass", "scala", "scm", "sconscript", "sconstruct", "script", "scss", "sgml", "sh", "shtml", "sml", "sql", "sty", "tcl", "tex", "text", "tld", "tli", "tmpl", "tpl", "txt", "vb", "vi", "vim", "wsdl", "xaml", "xhtml", "xoml", "xml", "xsd", "xsl", "xslt", "yaml", "yaws", "yml", "zs", "mp3", "fbx", "heic", "jpeg", "hbs", "textile", "c++"];
 
+        Handlebars.registerHelper("isFilterSelected", (filter: IRefinementValue, selected: IRefinementValue[])=>{
+            if(selected && selected.length > 0) {
+                return selected.some((f)=> {
+                    return f.RefinementName===filter.RefinementName && f.RefinementValue===filter.RefinementValue;
+                });
+            }
+            return false;
+        });
+
         // Return the URL of the search result item
         // Usage: <a href="{{url item}}">
-        Handlebars.registerHelper("getUrl", (item: ISearchResult) => {
+        Handlebars.registerHelper("getUrl", (item: ISearchResult, forceDirectLink: boolean = false) => {
 
             let url = '';
             if (!isEmpty(item)) {
-                if (!isEmpty(item.DefaultEncodingURL)
-                    && item.FileType
-                    && validPreviewExt.indexOf(item.FileType.toLocaleLowerCase()) !== -1) {
-                    url = this.createOdspPreviewUrl(item.DefaultEncodingURL);
+                const officeExtensions = ["doc", "docm", "docx", "dotx", "odp", "ods", "odt", "pot", "potm", "potx", "pps", "ppsx", "ppt", "pptm", "pptx", "rtf", "xls", "xlsb", "xlsm", "xlsx", "eml", "msg", "pdf", "vsd", "vsdx"];
+                const isOfficeDoc = !isEmpty(item.FileType) && officeExtensions.indexOf(item.FileType.toLocaleLowerCase()) !== -1;
+                const isLibItem = !isEmpty(item.contentclass) && item.contentclass.indexOf("Library") !== -1;
+                const isMobile = (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
 
-                    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-                        url = item.DefaultEncodingURL + "?web=1";
-                    }
-                }
-                else if (!isEmpty(item.ServerRedirectedURL)) {
-                    url = item.ServerRedirectedURL;
-                }
-                else if (item.FileType && item.FileType.toLowerCase() === "url" && item.ShortcutUrl) {
+                // Handle shortcut url's
+                if (!isEmpty(item.FileType) && item.FileType.toLowerCase() === "url" && item.ShortcutUrl) {
                     url = item.ShortcutUrl;
                 }
-                else if (item.OriginalPath) {
+                // Create ODSP viewer link for all files except office files or if on mobile
+                else if (!forceDirectLink && !isEmpty(item.DefaultEncodingURL) && !isMobile && isLibItem && !isOfficeDoc) {
+                    url = this.createOdspPreviewUrl(item.DefaultEncodingURL);
+                }
+                // Open with ?web=1 for office files or all files if on mobile
+                else if (!isEmpty(item.DefaultEncodingURL) && isLibItem && !forceDirectLink) {
+                    url = item.DefaultEncodingURL + "?web=1";
+                }
+                else if (!isEmpty(item.ServerRedirectedURL) && !isMobile && !forceDirectLink) {
+                    url = item.ServerRedirectedURL;
+                }
+                else if (!isEmpty(item.DefaultEncodingURL) && isLibItem) {
+                    url = item.DefaultEncodingURL;
+                }
+                else if (!isEmpty(item.OriginalPath)) {
                     url = item.OriginalPath;
                 }
                 else url = item.Path;
             }
 
-            return new Handlebars.SafeString(url);
+            return new Handlebars.SafeString(url.replace(/\+/g,"%2B"));
         });
 
         // Return SPFx page context variable
@@ -785,9 +806,38 @@ abstract class BaseTemplateService {
         this._initDocumentPreviews();
     }
 
+    public async isValidTemplateFile(filePath:string) : Promise<string> {
+        try {
+            // Doesn't raise any error if file is empty (otherwise error message will show on initial load...)
+            if (isEmpty(filePath)) { 
+                return '';
+            // Resolves an error if the file isn't a valid .htm or .html file
+            } else if (!BaseTemplateService.isValidTemplateFile(filePath)) {
+                return strings.ErrorTemplateExtension;
+            }
+            // Resolves an error if the file doesn't answer a simple head request
+            else {
+                await this.ensureFileResolves(filePath);
+                return '';
+            }
+        } catch (error) {
+            return Text.format(strings.ErrorTemplateResolve, error);
+        }
+    }
+
     public abstract getFileContent(fileUrl: string): Promise<string>;
 
     public abstract ensureFileResolves(fileUrl: string): Promise<void>;
+
+    public async getTemplateContent(templateHtml: string, templateFilePath: string) : Promise<string> {
+        
+        if (templateFilePath) {
+            return await this.getFileContent(templateFilePath);
+        } else {
+            return templateHtml;
+        }
+
+    }
 
     private static _initDocumentPreviews() {
         const nodes = document.querySelectorAll('.document-preview-item');

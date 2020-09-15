@@ -27,7 +27,7 @@ import SearchService from '../../services/SearchService/SearchService';
 import { PageOpenBehavior, QueryPathBehavior, UrlHelper } from '../../helpers/UrlHelper';
 import SearchBoxContainer from './components/SearchBoxContainer/SearchBoxContainer';
 import { SearchComponentType } from '../../models/SearchComponentType';
-import { BaseSuggestionProvider, IExtensibilityService, ExtensibilityService, IExtension, ISuggestionProviderInstance, ExtensionHelper, ExtensionTypes, IExtensibilityLibrary } from 'search-extensibility';
+import { BaseSuggestionProvider, IExtensibilityService, ExtensibilityService, IExtension, ISuggestionProviderInstance, ExtensionHelper, ExtensionTypes, IExtensibilityLibrary, IEditorLibrary } from 'search-extensibility';
 import { SharePointDefaultSuggestionProvider } from '../../providers/SharePointDefaultSuggestionProvider';
 import { Toggle } from 'office-ui-fabric-react/lib/Toggle';
 import { ThemeProvider, ThemeChangedEventArgs, IReadonlyTheme } from '@microsoft/sp-component-base';
@@ -172,7 +172,7 @@ export default class SearchBoxWebPart extends BaseClientSideWebPart<ISearchBoxWe
 
         // Disable PnP Telemetry
         const telemetry = PnPTelemetry.getInstance();
-        telemetry.optOut();
+        if (telemetry.optOut) telemetry.optOut();
 
         this.context.dynamicDataSourceManager.initializeSource(this);
 
@@ -182,9 +182,6 @@ export default class SearchBoxWebPart extends BaseClientSideWebPart<ISearchBoxWe
         this._bindHashChange();
         
         this._handleQueryStringChange();
-
-        this._extensibilityService = new ExtensibilityService();
-        await this.initSuggestionProviders();
 
         this._initComplete = true;
         return super.onInit();
@@ -417,11 +414,18 @@ export default class SearchBoxWebPart extends BaseClientSideWebPart<ISearchBoxWe
         };
     }
 
+    
+    /**
+     * Initializes the property pane configuration
+     */
+    protected async onPropertyPaneConfigurationStart() {
+        await this.loadPropertyPaneResources();
+    }
+
     protected async loadPropertyPaneResources(): Promise<void> {
 
-        const { PropertyPaneExtensibilityEditor } = await import('search-extensibility');
-
-        this._extensibilityEditor = PropertyPaneExtensibilityEditor;
+        const lib : IEditorLibrary = await this._extensibilityService.getEditorLibrary();
+        this._extensibilityEditor = lib.getExtensibilityEditor();
 
         const { PropertyFieldCollectionData, CustomCollectionFieldType } = await import(
             /* webpackChunkName: 'search-property-pane' */
@@ -633,7 +637,7 @@ export default class SearchBoxWebPart extends BaseClientSideWebPart<ISearchBoxWe
         } else {
             window.removeEventListener('hashchange', this.render);
         }
-        
+
     }
 
     /**
