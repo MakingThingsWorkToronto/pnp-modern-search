@@ -25,7 +25,7 @@ export default interface ITemplateService {
     processFieldsConfiguration<T>(fieldsConfigurationAsString: string, itemAsString: string, themeVariant?: IReadonlyTheme): T;
     registerResultTypes(resultTypes: ISearchResultType[], instanceId: string): Promise<void>;
     isValidTemplateFile(filePath: string): Promise<string>;
-    initPreviewElements(): Promise<void>;  
+    initPreviewElements(): void;  
     getFileContent(fileUrl: string): Promise<string>;
     loadHandlebarsHelpers() : Promise<void>;
     loadVideoLibrary() : Promise<void>;

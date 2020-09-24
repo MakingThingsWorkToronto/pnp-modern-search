@@ -61,7 +61,6 @@ export abstract class BaseTemplateService implements ITemplateService {
     private _ctx: WebPartContext;
     private _search: ISearchService;
     
-    
     public CurrentLocale = "en";
     public TimeZoneBias : ITimeZoneBias = {
         WebBias: 0,
@@ -474,8 +473,10 @@ export abstract class BaseTemplateService implements ITemplateService {
                 const existingHelper = typeof this.Handlebars.helpers[helper.name] == "function";
                 if(!existingHelper) {
                     try {
+                        Logger.write(`[MSWP.BaseTemplateService.registerHelpers()]: Creating instance of helper ` + helper.name);
                         let instance = ExtensionHelper.create(helper.extensionClass) as IHandlebarsHelperInstance;
                         instance.context = { webPart: this._ctx, search: this._search, template: this };
+                        Logger.write(`[MSWP.BaseTemplateService.registerHelpers()]: Registering helper ` + helper.name);
                         if(typeof instance.helper == "function") this.Handlebars.registerHelper(helper.name, instance.helper);
                     } catch(ex) {
                         Logger.error(ex);
@@ -495,15 +496,18 @@ export abstract class BaseTemplateService implements ITemplateService {
         webComponents.map(wc => {
             const component = customElements.get(wc.name);
             if (!component) {
-                customElements.define(wc.name, wc.extensionClass);
-            }
+                Logger.write("[MSWP.BaseTemplateService.registerWebComponents()]: Registering " + wc.name);
+                
+                // Set the arbitrary property to all instances to get the WebPart context available in components (ex: PersonaCard)
+                wc.extensionClass.prototype.context = {
+                    webPart: this._ctx,
+                    search: this._search,
+                    template: this
+                };
 
-            // Set the arbitrary property to all instances to get the WebPart context available in components (ex: PersonaCard)
-            wc.extensionClass.prototype.context = {
-                webPart: this._ctx,
-                search: this._search,
-                template: this
-            };
+                customElements.define(wc.name, wc.extensionClass);
+                
+            }
             
         });
 
@@ -853,8 +857,8 @@ export abstract class BaseTemplateService implements ITemplateService {
     /**
      * Initializes the previews on search results for documents and videos. Called when a template is updated/changed
      */
-    public async initPreviewElements(): Promise<void> {
-        await this._initVideoPreviews();
+    public initPreviewElements(): void {
+        this._initVideoPreviews();
         this._initDocumentPreviews();
     }
 
@@ -945,7 +949,7 @@ export abstract class BaseTemplateService implements ITemplateService {
 
         if (!this.Moment) {
             let moment = await import(
-                /* webpackChunkName: 'search-handlebars-helpers' */
+                /* webpackChunkName: 'moment' */
                 /* webpackMode: 'lazy' */
                 'moment'
             );

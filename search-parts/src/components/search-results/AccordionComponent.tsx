@@ -126,6 +126,8 @@ export class AccordionComponent extends React.Component<IAccordionComponentProps
             try {
 
                 const Collapsible = await import(
+                    /* webpackChunkName: 'react-collapsible' */
+                    /* webpackMode: 'lazy' */                    
                     'react-collapsible'
                 );
 

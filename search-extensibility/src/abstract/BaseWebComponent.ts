@@ -10,7 +10,7 @@ export abstract class BaseWebComponent extends HTMLElement implements IWebCompon
     public extensionType : string = ExtensionTypes.WebComponent;
     public context: IExtensionContext;
 
-    public allAttributes : { [key: string] : any } = {};
+    public all : { [key: string] : any } = {};
 
     public _themeVariant: IReadonlyTheme | undefined;
 
@@ -41,23 +41,19 @@ export abstract class BaseWebComponent extends HTMLElement implements IWebCompon
 
                 // Booleans
                 if (/^(true|false)$/i.test(value)) {
-                    this.allAttributes[camelCase(attr)] = (value === 'true');
+                    this.all[camelCase(attr)] = (value === 'true');
                 } else {
-                    this.allAttributes[camelCase(attr)] = value;
+                    this.all[camelCase(attr)] = value;
                 }
                 
             }         
         }
 
         // Added theme variant to be available in components
-        const themeProvider = this.context.webPart.serviceScope.consume(ThemeProvider.serviceKey);
-        const themeVariant = themeProvider.tryGetTheme();
-        this.allAttributes.themeVariant = themeVariant;
+        this.all.innerHTML = this.innerHTML;
+        this.all.styles = this.style;
 
-        this.allAttributes.innerHTML = this.innerHTML;
-        this.allAttributes.styles = this.style;
-
-        return this.allAttributes;
+        return this.all;
 
     }
 }

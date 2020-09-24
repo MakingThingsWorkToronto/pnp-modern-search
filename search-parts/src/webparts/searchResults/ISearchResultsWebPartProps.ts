@@ -19,8 +19,8 @@ export interface ISearchResultsWebPartProps {
     enableLocalization: boolean;
     
     // new properties to help with dynamic data source
-    searchDataSource:string;
-    searchDataSourceParameters: { [key:string]:any };
+    searchDataSource?:string;
+    searchDataSourceParameters?: { [key:string]:any };
 
     /*
     * Eliminate these in version 6, here for backwards compatability to support upgrade

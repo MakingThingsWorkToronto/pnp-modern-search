@@ -2,6 +2,6 @@ import { IExtensionInstance } from "../..";
 
 export interface IWebComponentInstance extends IExtensionInstance {
 
-    allAttributes : { [key: string] : any };
+    all : { [key: string] : any };
 
 }

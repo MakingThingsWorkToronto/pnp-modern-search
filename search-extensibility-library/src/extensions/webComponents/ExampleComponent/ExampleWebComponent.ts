@@ -15,7 +15,7 @@ export default class ExampleWebComponent extends BaseWebComponent {
 
        // You can use this._ctx here to access current Web Part context
        const exampleComponent = React.createElement(ExampleComponent, { 
-                                            innerHtml: this.allAttributes.innerHtml, 
+                                            innerHtml: this.all.innerHtml, 
                                             ...props 
                                 });
 

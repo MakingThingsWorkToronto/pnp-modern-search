@@ -10,12 +10,13 @@ if(qs.get("log") === "1") {
     Logger.subscribe(listener);
     console.log("[MSWP.LogService]: Console logging enabled.");
 } else {
-    console.log("[MSWP.LogService]: Console logging disabled.");
+    console.log("[MSWP.LogService]: Console logging disabled. Append log=1 to the query string to view log outputs in the console.");
 }
 
 Logger.activeLogLevel = LogLevel.Verbose;
-
-if(lvl = qs.get("lvl")) {
+lvl = qs.get("lvl");
+if(lvl) {
+    console.log("[MSWP.LogService]: logging level " + lvl);
     switch(lvl) {
         case "info":
             Logger.activeLogLevel = LogLevel.Info;

@@ -20,7 +20,6 @@ export { IQueryModifierInstance } from './models/instance/IQueryModifierInstance
 export { ISuggestionProviderInstance } from './models/instance/ISuggestionProviderInstance';
 export { IWebComponentInstance } from './models/instance/IWebComponentInstance';
 export { IRefinerInstance } from './models/instance/IRefinerInstance';
-export { ExtensibilityService } from './service/ExtensibilityService';
 export { ExtensionHelper } from './utility/ExtensionHelper';
 export { ExtensionType, ExtensionTypes } from './utility/ExtensionTypes';
 export { IUserService } from './models/IUserService';

@@ -19,6 +19,7 @@ export class PropertyPaneExtensibilityEditor extends BasePropertyPaneExtensibili
             key:properties.label,
             label:properties.label,
             allowedExtensions: properties.allowedExtensions,
+            extensibilityService: properties.extensibilityService,
             libraries: properties.libraries,
             onLibraryAdded: properties.onLibraryAdded,
             onLibraryDeleted: properties.onLibraryDeleted,
@@ -43,6 +44,7 @@ export class PropertyPaneExtensibilityEditor extends BasePropertyPaneExtensibili
             label: this.properties.label,
             allowedExtensions: this.properties.allowedExtensions,
             libraries: this.properties.libraries,
+            extensibilityService: this.properties.extensibilityService,
             onLibraryAdded: this.onLibraryAdded.bind(this),
             onLibraryDeleted: this.onLibraryDeleted.bind(this)
         });

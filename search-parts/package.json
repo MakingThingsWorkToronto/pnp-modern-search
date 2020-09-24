@@ -32,8 +32,8 @@
         "@pnp/spfx-controls-react": "1.20.0",
         "@pnp/spfx-property-controls": "1.20.0",
         "@pnp/telemetry-js": "2.0.0",
-        "@uifabric/file-type-icons": "7.3.13",
-        "@uifabric/icons": "7.3.59",
+        "@uifabric/file-type-icons": "^7.6.6",
+        "@uifabric/icons": "^7.5.5",
         "@uifabric/styling": "6.50.7",
         "core-js": "3.3.2",
         "custom-event-polyfill": "1.0.7",
@@ -43,6 +43,7 @@
         "handlebars": "4.4.5",
         "handlebars-group-by": "1.0.1",
         "handlebars-helpers": "0.8.4",
+        "html-react-parser": "^0.14.0",
         "immutability-helper": "^3.1.1",
         "moment": "2.24.0",
         "office-ui-fabric-react": "6.214.0",
@@ -51,10 +52,11 @@
         "react-collapsible": "2.7.0",
         "react-dom": "16.8.5",
         "react-js-pagination": "3.0.2",
-        "video.js": "7.8.3"
+        "video.js": "7.8.3",
+        "typescript": "~3.3.0"
     },
     "devDependencies": {
-        "@microsoft/rush-stack-compiler-3.3": "0.3.5",
+        "@microsoft/rush-stack-compiler-3.3": "^0.9.20",
         "@microsoft/sp-build-web": "1.11.0",
         "@microsoft/sp-module-interfaces": "1.11.0",
         "@microsoft/sp-tslint-rules": "1.11.0",

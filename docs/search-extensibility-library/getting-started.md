@@ -183,10 +183,9 @@ To create a custom component, follow this procedure:
                 // this.context.template    - limited template service
                 // this.context.webPart     - the webpart context
 
-                // You can access component innerHTML, styles and themeVariant using the allAttributes property
-                // this.allAttributes.innerHTML
-                // this.allAttributes.styles
-                // this.allAttributes.themeVariant
+                // You can access component innerHTML, styles and themeVariant using the all property
+                // this.all.innerHTML
+                // this.all.styles
 
                 const customComponent = <CustomComponent {...props}/>;
                 ReactDOM.render(customComponent, this);

@@ -12,7 +12,7 @@ import {
   PropertyPaneToggle
 } from "@microsoft/sp-property-pane";
 import * as strings from 'SearchRefinersWebPartStrings';
-import { ExtensionTypes, IExtension, ExtensibilityService, IExtensibilityService, 
+import { ExtensionTypes, IExtension, IExtensibilityService, 
   IExtensibilityLibrary, IRefinementFilter, IUserService, ITimeZoneBias, 
   RefinersLayoutOption, RefinerTemplateOption,
   RefinersSortOption, RefinerSortDirection, IEditorLibrary, IRefinerConfiguration } from 'search-extensibility';
@@ -27,8 +27,6 @@ import { ISearchRefinersContainerProps } from './components/SearchRefinersContai
 import ISearchResultSourceData from '../../models/ISearchResultSourceData';
 import { DynamicDataService } from '../../services/DynamicDataService/DynamicDataService';
 import IDynamicDataService from '../../services/DynamicDataService/IDynamicDataService';
-import MockSearchService from '../../services/SearchService/MockSearchService';
-import SearchService from '../../services/SearchService/SearchService';
 import ISearchService from '../../services/SearchService/ISearchService';
 import { IComboBoxOption } from 'office-ui-fabric-react/lib/ComboBox';
 import ITemplateService from '../../services/TemplateService/ITemplateService';
@@ -40,6 +38,7 @@ import PnPTelemetry from "@pnp/telemetry-js";
 import { CssHelper } from '../../helpers/CssHelper';
 import { AvailableComponents } from '../../components/AvailableComponents';
 import { Guid } from '@microsoft/sp-core-library';
+import Logger from '../../services/LogService/LogService';
 
 const STYLE_PREFIX :string = "pnp-filter-wp-";
 
@@ -134,6 +133,7 @@ export default class SearchRefinersWebPart extends BaseClientSideWebPart<ISearch
           onUpdateFilters: (appliedRefiners: IRefinementFilter[]) => {
             this._isDirty = true;
             this._selectedFilters = appliedRefiners;
+            Logger.write("[MSWP.SearchRefinersWebPart.onUpdateFilters()]: refiners changed");
             this.context.dynamicDataSourceManager.notifyPropertyChanged(SearchComponentType.RefinersWebPart);
           },
           selectedLayout: this.properties.selectedLayout,
@@ -168,6 +168,7 @@ export default class SearchRefinersWebPart extends BaseClientSideWebPart<ISearch
       }
     }
     ReactDom.render(renderElement, this.domElement);
+
   }
 
   /**
@@ -212,7 +213,14 @@ export default class SearchRefinersWebPart extends BaseClientSideWebPart<ISearch
     const telemetry = PnPTelemetry.getInstance();
     telemetry.optOut();
 
-    this._extensibilityService = new ExtensibilityService();
+    Logger.write("[MSWP.SearchRefinersWebPart.onInit()]: Initializing Search Extensibility");
+
+    const extSvcModule = await import (
+      /* webpackChunkName: 'extensibility-service' */
+      /* webpackMode: 'lazy' */
+      "../../services/ExtensibilityService/ExtensibilityService");
+
+    this._extensibilityService = extSvcModule.ExtensibilityServiceLoader.get();
 
     this._initializeRequiredProperties();
     this.initThemeVariant();
@@ -224,12 +232,30 @@ export default class SearchRefinersWebPart extends BaseClientSideWebPart<ISearch
     this.ensureDataSourceConnection();
 
     if (Environment.type === EnvironmentType.Local) {
-      this._searchService = new MockSearchService();
+      
+      const mss = await import(
+        /* webpackChunkName: 'mock-search-service' */
+        /* webpackMode: 'lazy' */
+        '../../services/SearchService/MockSearchService');
+      this._searchService = new mss.default();
+
       this._userService = new MockUserService();
-      this._templateServiceImport = await import('../../services/TemplateService/MockTemplateService');
+
+      this._templateServiceImport = await import(
+          /* webpackChunkName: 'template-service' */
+          /* webpackMode: 'lazy' */
+        '../../services/TemplateService/MockTemplateService');
+
       this._templateService = new this._templateServiceImport.default(this.context.pageContext.cultureInfo.currentUICultureName, this.context, this._searchService, this._extensibilityService);
+
     } else {
-      this._searchService = new SearchService(this.context.pageContext, this.context.spHttpClient);
+      
+      const ss = await import(
+        /* webpackChunkName: 'mock-search-service' */
+        /* webpackMode: 'lazy' */
+        '../../services/SearchService/SearchService');
+      this._searchService = new ss.default(this.context.pageContext, this.context.spHttpClient);
+
       this._userService = new UserService(this.context.pageContext);
       
       this._timeZoneBias = {
@@ -245,12 +271,18 @@ export default class SearchRefinersWebPart extends BaseClientSideWebPart<ISearch
           this._timeZoneBias.UserDST = this.context.pageContext.legacyPageContext.userTimeZoneData.DaylightBias;
           this._timeZoneBias.Id = this.context.pageContext.legacyPageContext.webTimeZoneData.Id;
       }
-      
-      this._templateServiceImport = await import('../../services/TemplateService/TemplateService');
+                  
+      this._templateServiceImport = await import(
+          /* webpackChunkName: 'template-service' */
+          /* webpackMode: 'lazy' */
+        '../../services/TemplateService/TemplateService');
+
       this._templateService = new this._templateServiceImport.default(this.context.spHttpClient, 
                                       this.context.pageContext.cultureInfo.currentUICultureName, this._searchService,  this._extensibilityService,
                                       this._timeZoneBias, this.context);
     }
+    
+    await this._loadExtensibility();
 
     this._searchService.initializeTemplateService(this._templateService);
 
@@ -259,8 +291,6 @@ export default class SearchRefinersWebPart extends BaseClientSideWebPart<ISearch
     if(!this.properties.styles || this.properties.styles.trim().length == 0) this.properties.styles = "<style></style>";
     
     this._customStyles = await this._processStyles();
-         
-    await this._loadExtensibility();
 
     return super.onInit();
 
@@ -270,34 +300,38 @@ export default class SearchRefinersWebPart extends BaseClientSideWebPart<ISearch
    * Load extensibility functionality
    */
   private async _loadExtensibility() : Promise<void> {
-        
-    // Load extensibility library if present
-    this._loadedLibraries = await this._extensibilityService.loadExtensibilityLibraries(this.properties.extensibilityLibraries.map((i)=>Guid.parse(i)));
-    
+     
+    Logger.write("[MSWP.SearchRefinersWebPart._loadExtensibility()]");
     // Disable PnP Telemetry
     const telemetry = PnPTelemetry.getInstance();
     if (telemetry.optOut) telemetry.optOut();
+    
+    // Load extensibility library if present
+    if(this.properties.extensibilityLibraries.length > 0) {
+      this._loadedLibraries = await this._extensibilityService.loadExtensibilityLibraries(this.properties.extensibilityLibraries.map((i)=>Guid.parse(i)));
+    }
 
     // Load extensibility additions
     if (this._loadedLibraries && this._loadedLibraries.length>0) {
+      
+      Logger.write("[MSWP.SearchRefinersWebPart._loadExtensibility()]: Getting All");
+      const extensions = this._extensibilityService.getAllExtensions(this._loadedLibraries);
 
-        const extensions = this._extensibilityService.getAllExtensions(this._loadedLibraries);
+      // Add custom web components if any
+      this.availableWebComponentDefinitions = AvailableComponents.BuiltinComponents;
+      this.availableWebComponentDefinitions = this.availableWebComponentDefinitions.concat(
+          this._extensibilityService.filter(extensions, ExtensionTypes.WebComponent)
+      );
 
-        // Add custom web components if any
-        this.availableWebComponentDefinitions = AvailableComponents.BuiltinComponents;
-        this.availableWebComponentDefinitions = this.availableWebComponentDefinitions.concat(
-            this._extensibilityService.filter(extensions, ExtensionTypes.WebComponent)
-        );
-
-        this._availableHelpers = this._extensibilityService.filter(extensions, ExtensionTypes.HandlebarsHelper);
+      this._availableHelpers = this._extensibilityService.filter(extensions, ExtensionTypes.HandlebarsHelper);
         
     } else {
 
-        this.availableWebComponentDefinitions = AvailableComponents.BuiltinComponents;
-        this._availableHelpers = [];
+      this.availableWebComponentDefinitions = AvailableComponents.BuiltinComponents;
+      this._availableHelpers = [];
         
     }
-
+    
     return await this._registerExtensions();
 
 }
@@ -335,6 +369,7 @@ export default class SearchRefinersWebPart extends BaseClientSideWebPart<ISearch
         label: strings.Refiners.EditRefinersLabel,
         refiners: this.properties.refinersConfiguration,
         onAvailablePropertiesUpdated: this._onUpdateAvailableProperties.bind(this),
+        extensibilityService: this._extensibilityService,
         onChange : (refiners: IRefinerConfiguration[]) =>{
           this.properties.refinersConfiguration = refiners;
           this.context.dynamicDataSourceManager.notifyPropertyChanged(SearchComponentType.RefinersWebPart);

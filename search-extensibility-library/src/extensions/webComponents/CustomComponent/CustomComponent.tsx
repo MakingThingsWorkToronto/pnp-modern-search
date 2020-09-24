@@ -89,10 +89,10 @@ export class MyCustomComponentWebComponent extends BaseWebComponent {
         // this.context.template
         // this.context.webPart
 
-        // You can access component innerHTML, styles and themeVariant using the allAttributes property
-        // this.allAttributes.innerHTML
-        // this.allAttributes.styles
-        // this.allAttributes.themeVariant
+        // You can access component innerHTML, styles and themeVariant using the all property
+        // this.all.innerHTML
+        // this.all.styles
+        // this.all.themeVariant
 
         const customComponent = <CustomComponent {...props}/>;
         ReactDOM.render(customComponent, this);

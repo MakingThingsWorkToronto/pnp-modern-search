@@ -12,6 +12,11 @@ export interface IExtensibilityService {
     tryLoadExtensibilityLibrary(id: Guid): Promise<IExtensibilityLibrary>;
 
     /**
+     * Returns all loaded extensibility libraries to avoid duplicate loading
+     */
+    getAllLoadedLibraries() : IExtensibilityLibrary[];
+
+    /**
      * Loads several extensibility libraries for a list of ids
      * @param libraries the libraries to be loaded
      * @returns loads all libraries that can be found or empty array if no components can be found.

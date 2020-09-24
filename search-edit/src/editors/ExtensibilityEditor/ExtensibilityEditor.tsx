@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Icon, SelectionMode, DetailsListLayoutMode, DefaultButton, DetailsList, Panel, TextField, IIconProps, PanelType} from 'office-ui-fabric-react';
 import { Guid } from '@microsoft/sp-core-library';
-import { IExtensibilityLibrary, IExtension, ExtensibilityService, IExtensibilityEditorProps } from 'search-extensibility';
+import { IExtensibilityLibrary, IExtension, IExtensibilityEditorProps, IExtensibilityService } from 'search-extensibility';
 import * as styles from './ExtensibilityEditor.module.scss';
 import * as strings from 'SearchEditComponentsLibraryStrings';
 
@@ -25,12 +25,12 @@ export class ExtensibilityEditor extends React.Component<IExtensibilityEditorPro
 
     private _deleteIcon: IIconProps = { iconName: 'Delete' };    
     private _settingsIcon: IIconProps = { iconName: 'Settings' };
-    private _service: ExtensibilityService = null;
+    private _service: IExtensibilityService = null;
 
     constructor(props:IExtensibilityEditorProps, state:IExtensibilityEditorState){
         super(props);
         
-        this._service = new ExtensibilityService();
+        this._service = props.extensibilityService;
 
         this.state = {
             show: false,

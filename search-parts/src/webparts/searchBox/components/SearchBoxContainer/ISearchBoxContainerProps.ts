@@ -1,6 +1,5 @@
 import { PageOpenBehavior, QueryPathBehavior } from '../../../../helpers/UrlHelper';
 import ISearchService from       '../../../../services/SearchService/ISearchService';
-//import { ISuggestionProviderInstance } from '../../../../services/ExtensibilityService/ISuggestionProviderInstance';
 import { ISuggestionProviderInstance } from 'search-extensibility';
 import { IReadonlyTheme } from '@microsoft/sp-component-base';
 

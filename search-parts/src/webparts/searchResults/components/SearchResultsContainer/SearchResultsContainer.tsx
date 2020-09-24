@@ -43,6 +43,8 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
     public constructor(props: ISearchResultsContainerProps) {
         super(props);
 
+        Logger.write("[MSWP.SearchResultsContainer.constructor()]");
+
         // Get default sortField & sortDirection from the sortList & sortableFields
         this._defaultSortingValues = this._getDefaultSortingValues();
 
@@ -72,86 +74,64 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
         const hasError = this.state.hasError;
         const errorMessage = this.state.errorMessage;
 
+        let totalPrimaryAndSecondaryResults = 0;
         let renderWpContent: JSX.Element = null;
         let renderOverlay: JSX.Element = null;
         let renderWebPartTitle: JSX.Element = null;
         let renderShimmerElements: JSX.Element = null;
-
-        const sortPanel = <SortPanel
-            onUpdateSort={this._onUpdateSort}
-            sortableFieldsConfiguration={this.props.sortableFields}
-            sortDirection={this.state.sortDirection}
-            sortField={this.state.sortField} />;
 
         const { semanticColors }: IReadonlyTheme = this.props.themeVariant;
 
         // Loading behavior
         if (areResultsLoading) {
 
-            if (items.RelevantResults.length > 0 || items.SecondaryResults.length > 0) {
-                renderOverlay = <div>
-                    <Overlay isDarkThemed={false} theme={this.props.themeVariant as ITheme} className={styles.overlay}>
-                        <Spinner size={SpinnerSize.medium} />
-                    </Overlay>
-                </div>;
+            const placeHolderContent = this.props.templateService.getPlaceholderMarkup(this.props.templateContent);
+
+            let templateContext = {
+                items: [],
+                showResultsCount: this.props.showResultsCount,
+                paging: {
+                    totalItemsCount: this.props.pagingSettings.itemsCountPerPage ? this.props.pagingSettings.itemsCountPerPage : 0
+                },
+                strings: strings,
+                themeVariant: this.props.themeVariant,
+                instanceId: this.props.instanceId
+            };
+
+            // Merge with property pane template parameters
+            templateContext = { ...templateContext, ...this.props.templateParameters };
+
+            if (placeHolderContent) {
+                
+                Logger.write("[MSWP.SearchResultsContainer.render()]: Rendering ... Shimmer Placeholder.");
+
+                renderShimmerElements = <SearchTemplate<ISearchResultsTemplateContext>
+                        templateService={this.props.templateService}
+                        templateContent={placeHolderContent}
+                        templateContext={templateContext}
+                        instanceId={this.props.instanceId}
+                    />;
+
             } else {
 
-                const placeHolderContent = this.props.templateService.getPlaceholderMarkup(this.props.templateContent);
+                Logger.write("[MSWP.SearchResultsContainer.render()]: Rendering ... Default Shimmer.");
+                // Use default shimmers
+                renderShimmerElements = this._getShimmerElements();
 
-                let templateContext = {
-                    items: [],
-                    showResultsCount: this.props.showResultsCount,
-                    paging: {
-                        totalItemsCount: this.props.pagingSettings.itemsCountPerPage ? this.props.pagingSettings.itemsCountPerPage : 0
-                    },
-                    strings: strings,
-                    themeVariant: this.props.themeVariant,
-                    instanceId: this.props.instanceId
-                };
-
-                // Merge with property pane template parameters
-                templateContext = { ...templateContext, ...this.props.templateParameters };
-
-                if (placeHolderContent) {
-                    
-                    renderShimmerElements = <SearchTemplate<ISearchResultsTemplateContext>
-                            templateService={this.props.templateService}
-                            templateContent={placeHolderContent}
-                            templateContext={templateContext}
-                            instanceId={this.props.instanceId}
-                        />;
-
-                } else {
-                    // Use default shimmers
-                    renderShimmerElements = this._getShimmerElements();
-                }
-            }
-        }
-
-        // WebPart Title
-        if (this.props.webPartTitle && this.props.webPartTitle.length > 0) {
-            renderWebPartTitle = <WebPartTitle title={this.props.webPartTitle} updateProperty={null} displayMode={DisplayMode.Read} />;
-        }
-
-        let totalPrimaryAndSecondaryResults = this.state.results.RelevantResults.length;
-        if (this.state.results.SecondaryResults.length > 0) {
-            totalPrimaryAndSecondaryResults += this.state.results.SecondaryResults.reduce((sum, block) => sum += block.Results.length, 0);
-        }
-
-        // WebPart content
-        if (totalPrimaryAndSecondaryResults === 0
-            && this.props.showBlank
-            && this.props.selectedLayout !== ResultsLayoutOption.Debug) {
-
-            Logger.write("[MSWP.SearchResultsContainer.render()]: No search results");
-
-            renderWebPartTitle = null;
-
-            if (this.props.displayMode === DisplayMode.Edit) {
-                renderWpContent = <MessageBar messageBarType={MessageBarType.info}>{strings.ShowBlankEditInfoMessage}</MessageBar>;
             }
 
         } else {
+
+            const sortPanel = <SortPanel
+                                onUpdateSort={this._onUpdateSort}
+                                sortableFieldsConfiguration={this.props.sortableFields}
+                                sortDirection={this.state.sortDirection}
+                                sortField={this.state.sortField} />;
+
+            totalPrimaryAndSecondaryResults = this.state.results.RelevantResults.length;
+            if (this.state.results.SecondaryResults.length > 0) {
+                totalPrimaryAndSecondaryResults += this.state.results.SecondaryResults.reduce((sum, block) => sum += block.Results.length, 0);
+            }
 
             let templateContext = {
                 queryModification: this.state.results.QueryModification,
@@ -189,18 +169,27 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
             templateContext = { ...templateContext, ...this.props.templateParameters };
 
             let renderSearchResultTemplate = <div></div>;
-            if (!this.props.useCodeRenderer && !areResultsLoading) {
+            if (!this.props.useCodeRenderer) {
                 
-                Logger.write("[MSWP.SearchResultsContainer.render()]: Rendering template");
+                try {
+                    
+                    Logger.write("[MSWP.SearchResultsContainer.render()]: Rendering ... Search Template");
 
-                renderSearchResultTemplate =
-                    <SearchTemplate<ISearchResultsTemplateContext>
-                        templateService={this.props.templateService}
-                        templateContent={this.props.templateService.getTemplateMarkup(this.props.templateContent)}
-                        templateContext={templateContext}
-                        instanceId={this.props.instanceId}
-                    />;
+                    renderSearchResultTemplate =
+                        <SearchTemplate<ISearchResultsTemplateContext>
+                            templateService={this.props.templateService}
+                            templateContent={this.props.templateService.getTemplateMarkup(this.props.templateContent)}
+                            templateContext={templateContext}
+                            instanceId={this.props.instanceId}
+                        />;
 
+                } catch (e) { 
+                    Logger.error(e);
+                    Logger.write('[MSWP.SearchResultsContainer.render()]: failure rendering search result template');
+                }
+
+            } else {
+                Logger.write("[MSWP.SearchResultsContainer.render()]: Rendering ... Code Renderer Configured Not Rendering.");
             }
 
             renderWpContent =
@@ -212,20 +201,39 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
                 </div>;
         }
 
+        // WebPart Title
+        if (this.props.webPartTitle && this.props.webPartTitle.length > 0) {
+            renderWebPartTitle = <WebPartTitle title={this.props.webPartTitle} updateProperty={null} displayMode={DisplayMode.Read} />;
+        }
+
+        // WebPart content
+        if (totalPrimaryAndSecondaryResults === 0
+            && this.props.showBlank
+            && this.props.selectedLayout !== ResultsLayoutOption.Debug) {
+
+            Logger.write("[MSWP.SearchResultsContainer.render()]: Rendering ... No Search Results");
+
+            renderWebPartTitle = null;
+
+            if (this.props.displayMode === DisplayMode.Edit) {
+                renderWpContent = <MessageBar messageBarType={MessageBarType.info}>{strings.ShowBlankEditInfoMessage}</MessageBar>;
+            }
+
+        } 
+
         // Error Message
         if (hasError) {
+            Logger.write("[MSWP.SearchResultsContainer.render()]: Rendering ... Error Message");
             renderWpContent = <MessageBar messageBarType={MessageBarType.error}>{errorMessage}</MessageBar>;
         }
         
-        Logger.write('[MSWP.SearchResultsContainer.render()]: rendering search template');
+        Logger.write('[MSWP.SearchResultsContainer.render()]: Rendering ... SearchResultsContainer.');
 
         return (
-            <div style={{ backgroundColor: semanticColors.bodyBackground }}>
-                <div className={styles.searchWp}>
-                    <div tabIndex={-1} ref={(ref) => { this._searchWpRef = ref; }}></div>
-                    {renderWebPartTitle}
-                    {renderShimmerElements ? renderShimmerElements : renderWpContent}
-                </div>
+            <div className={styles.searchWp}>
+                <div tabIndex={-1} ref={(ref) => { this._searchWpRef = ref; }}></div>
+                {renderWebPartTitle}
+                {areResultsLoading ? renderShimmerElements : renderWpContent}
             </div>
         );
 
@@ -275,6 +283,14 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
             });
         }
     }
+/*
+    public shouldComponentUpdate(nextProps:ISearchResultsContainerProps, nextState: ISearchResultsContainerState) : boolean {
+        return this.state.areResultsLoading !== nextState.areResultsLoading
+            || this.state.results !== nextState.results
+            || this.state.sortDirection !== nextState.sortDirection
+            || this.state.sortField !== nextState.sortField;
+    }
+*/
 
     public async componentDidUpdate(prevProps: ISearchResultsContainerProps) {
 
@@ -319,6 +335,7 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
                 isPageUpdated = true;
             }
         }
+
         if (executeSearch) {
 
             // Don't perform search is there is no keywords
@@ -349,7 +366,7 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
 
                     const searchResults = await this._getSearchResults(this.props, selectedPage);
                     
-                    Logger.write("[MSWP.SearchResultsContainer.componentDidUpdate()]: after get search results render.");
+                    Logger.write("[MSWP.SearchResultsContainer.componentDidUpdate()]: After Get Search Results Render.");
                     this.setState({
                         results: searchResults,
                         areResultsLoading: false,
@@ -361,6 +378,7 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
 
                 } catch (error) {
 
+                    Logger.error(error);
                     Logger.write('[MSWP.SearchResultsContainer._componentWillReceiveProps()]: Error: ' + error, LogLevel.Error);
 
                     let results: ISearchResults = { QueryKeywords: this.state.results.QueryKeywords, RefinementResults: [], RelevantResults: [], SecondaryResults: [] };
@@ -387,7 +405,7 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
             }
 
         } else {
-
+            
             // Refresh the template without making a new search query because we don't need to
             if (this.props.templateContent !== prevProps.templateContent ||
                 this.props.showResultsCount !== prevProps.showResultsCount ||
@@ -470,8 +488,11 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
                 this.handleResultUpdateBroadCast(searchResults);
             }
             catch (error) {
-                Logger.write('[MSWP.SearchResultsContainer._onUpdateSort()]: Error: ' + error, LogLevel.Error);
+                
                 const errorMessage = /\"value\":\"[^:]+: SortList\.\"/.test(error.message) ? strings.Sort.SortErrorMessage : error.message;
+                Logger.error(error);
+                Logger.write('[MSWP.SearchResultsContainer._onUpdateSort()]: Error: ' + errorMessage, LogLevel.Error);
+                
 
                 let results: ISearchResults = { QueryKeywords: this.state.results.QueryKeywords, RefinementResults: [], RelevantResults: [], SecondaryResults: [] };
 
@@ -795,6 +816,8 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
      * @param pageNumber the page number to retrieve
      */
     private async _getSearchResults(props: ISearchResultsContainerProps, pageNumber?: number): Promise<ISearchResults> {
+
+        Logger.write("[MSWP.SearchResultsContainer._getSearchResults()]: Retrieving Search Results.");
 
         // Get search results
         const searchResults = await props.searchService.search(props.queryKeywords, {

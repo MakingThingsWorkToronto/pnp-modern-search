@@ -22,12 +22,10 @@ import ISearchBoxWebPartProps from './ISearchBoxWebPartProps';
 import { IDynamicDataCallables, IDynamicDataPropertyDefinition } from '@microsoft/sp-dynamic-data';
 import { ISearchBoxContainerProps } from './components/SearchBoxContainer/ISearchBoxContainerProps';
 import ISearchService from '../../services/SearchService/ISearchService';
-import MockSearchService from '../../services/SearchService/MockSearchService';
-import SearchService from '../../services/SearchService/SearchService';
 import { PageOpenBehavior, QueryPathBehavior, UrlHelper } from '../../helpers/UrlHelper';
 import SearchBoxContainer from './components/SearchBoxContainer/SearchBoxContainer';
 import { SearchComponentType } from '../../models/SearchComponentType';
-import { BaseSuggestionProvider, IExtensibilityService, ExtensibilityService, IExtension, ISuggestionProviderInstance, ExtensionHelper, ExtensionTypes, IExtensibilityLibrary, IEditorLibrary } from 'search-extensibility';
+import { BaseSuggestionProvider, IExtensibilityService, IExtension, ISuggestionProviderInstance, ExtensionHelper, ExtensionTypes, IExtensibilityLibrary, IEditorLibrary } from 'search-extensibility';
 import { SharePointDefaultSuggestionProvider } from '../../providers/SharePointDefaultSuggestionProvider';
 import { Toggle } from 'office-ui-fabric-react/lib/Toggle';
 import { ThemeProvider, ThemeChangedEventArgs, IReadonlyTheme } from '@microsoft/sp-component-base';
@@ -163,13 +161,20 @@ export default class SearchBoxWebPart extends BaseClientSideWebPart<ISearchBoxWe
     
         if(!this.properties.extensibilityLibraries) this.properties.extensibilityLibraries = [];
     
-        this.initSearchService();
+        await this.initSearchService();
         this.initThemeVariant();
         
         this._bindHashChange();
+        
+        Logger.write("[MSWP.SearchBoxWebPart.onInit()]: Initializing Search Extensibility");
+        
+        const extSvcModule = await import (
+            /* webpackChunkName: 'extensibility-service' */
+            /* webpackMode: 'lazy' */
+            "../../services/ExtensibilityService/ExtensibilityService");
 
-        this._extensibilityService = new ExtensibilityService();
-        this._loadExtensibility();
+        this._extensibilityService = extSvcModule.ExtensibilityServiceLoader.get();
+        await this._loadExtensibility();
         await this.initSuggestionProviders();
 
         // Disable PnP Telemetry
@@ -177,9 +182,6 @@ export default class SearchBoxWebPart extends BaseClientSideWebPart<ISearchBoxWe
         if (telemetry.optOut) telemetry.optOut();
 
         this.context.dynamicDataSourceManager.initializeSource(this);
-
-        this.initSearchService();
-        this.initThemeVariant();
 
         this._bindHashChange();
         
@@ -224,8 +226,6 @@ export default class SearchBoxWebPart extends BaseClientSideWebPart<ISearchBoxWe
     }
 
     protected async onPropertyPaneFieldChanged(propertyPath: string): Promise<void> {
-
-        this.initSearchService();
 
         if (!this.properties.useDynamicDataSource) {
             this.properties.defaultQueryKeywords.setValue("");
@@ -292,16 +292,24 @@ export default class SearchBoxWebPart extends BaseClientSideWebPart<ISearchBoxWe
     /**
      * Initializes the query suggestions data provider instance according to the current environnement
      */
-    private initSearchService() {
+    private async initSearchService() : Promise<void> {
 
         if (this.properties.enableQuerySuggestions) {
             if (Environment.type === EnvironmentType.Local) {
-                this._searchService = new MockSearchService();
+                const mss = await import(
+                    /* webpackChunkName: 'mock-search-service' */
+                    /* webpackMode: 'lazy' */
+                    '../../services/SearchService/MockSearchService');
+                this._searchService = new mss.default();
             } else {
-                this._searchService = new SearchService(this.context.pageContext, this.context.spHttpClient);
-                return "";
+                const ss = await import(
+                    /* webpackChunkName: 'mock-search-service' */
+                    /* webpackMode: 'lazy' */
+                    '../../services/SearchService/SearchService');
+                this._searchService = new ss.default(this.context.pageContext, this.context.spHttpClient);
             }
         }
+
     }
 
     private async initSuggestionProviders(): Promise<void> {
@@ -354,12 +362,17 @@ export default class SearchBoxWebPart extends BaseClientSideWebPart<ISearchBoxWe
 
     private async _loadExtensibility() : Promise<void> {
         
+        Logger.write("[MSWP.SearchBoxWebPart._loadExtensibility()]");
+        
         // Load extensibility library if present
-        this._loadedLibraries = await this._extensibilityService.loadExtensibilityLibraries(this.properties.extensibilityLibraries.map((i)=>Guid.parse(i)));
-
+        if(this.properties.extensibilityLibraries.length > 0) {
+            this._loadedLibraries = await this._extensibilityService.loadExtensibilityLibraries(this.properties.extensibilityLibraries.map((i)=>Guid.parse(i)));
+        }
+        
         // Load extensibility additions
         if (this._loadedLibraries && this._loadedLibraries.length>0) {
             
+            Logger.write("[MSWP.SearchBoxWebPart._loadExtensibility()]: Getting All Extensions");    
             const extensions = this._extensibilityService.getAllExtensions(this._loadedLibraries);
             this._customSuggestionProviders = this._extensibilityService.filter(extensions, ExtensionTypes.SuggestionProvider);
 
@@ -368,7 +381,7 @@ export default class SearchBoxWebPart extends BaseClientSideWebPart<ISearchBoxWe
             this._customSuggestionProviders = [];
 
         }
-
+       
     }
 
     private async initSuggestionProviderInstances(providerDefinitions: IExtension<any>[]): Promise<BaseSuggestionProvider[]> {
@@ -449,6 +462,7 @@ export default class SearchBoxWebPart extends BaseClientSideWebPart<ISearchBoxWe
                 label: strings.Extensibility.ButtonLabel,
                 allowedExtensions: [ ExtensionTypes.SuggestionProvider ],
                 libraries: this._loadedLibraries,
+                extensibilityService: this._extensibilityService,
                 onLibraryAdded: async (id:Guid) => {
                     this.properties.extensibilityLibraries.push(id.toString());
                     await this._loadExtensibility();

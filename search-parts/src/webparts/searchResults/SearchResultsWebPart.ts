@@ -27,8 +27,6 @@ import ITaxonomyService from '../../services/TaxonomyService/ITaxonomyService';
 import ResultsLayoutOption from '../../models/ResultsLayoutOption';
 import ITemplateService from '../../services/TemplateService/ITemplateService';
 import { isEmpty, find, sortBy, cloneDeep, isEqual, findIndex } from '@microsoft/sp-lodash-subset';
-import MockSearchService from '../../services/SearchService/MockSearchService';
-import SearchService from '../../services/SearchService/SearchService';
 import TaxonomyService from '../../services/TaxonomyService/TaxonomyService';
 import MockTaxonomyService from '../../services/TaxonomyService/MockTaxonomyService';
 import ISearchResultsContainerProps from './components/SearchResultsContainer/ISearchResultsContainerProps';
@@ -52,11 +50,11 @@ import ISearchVerticalSourceData from '../../models/ISearchVerticalSourceData';
 import LocalizationHelper from '../../helpers/LocalizationHelper';
 import { IDropdownOption } from 'office-ui-fabric-react/lib/Dropdown';
 import { IComboBoxOption } from 'office-ui-fabric-react/lib/ComboBox';
-import { BaseQueryModifier, ExtensibilityService, IExtensibilityService, IExtension, IQueryModifierInstance, ExtensionHelper, ExtensionTypes } from 'search-extensibility';
+import { BaseQueryModifier, IExtensibilityService, IExtension, IQueryModifierInstance, ExtensionHelper, ExtensionTypes } from 'search-extensibility';
 import { AvailableComponents } from '../../components/AvailableComponents';
 import { BaseClientSideWebPart, IWebPartPropertiesMetadata, PropertyPaneButton } from "@microsoft/sp-webpart-base";
 import { IPropertyPaneGroup } from "@microsoft/sp-property-pane";
-import { Toggle, GlobalSettings } from 'office-ui-fabric-react';
+import { Toggle } from 'office-ui-fabric-react';
 import IQueryModifierConfiguration from '../../models/IQueryModifierConfiguration';
 import { SearchHelper } from '../../helpers/SearchHelper';
 import { StringHelper } from '../../helpers/StringHelper';
@@ -64,12 +62,12 @@ import PnPTelemetry from "@pnp/telemetry-js";
 import { Guid } from '@microsoft/sp-core-library';
 import { LogLevel } from '@pnp/logging';
 import Logger from '../../services/LogService/LogService';
+import { override } from '@microsoft/decorators';
 
 export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchResultsWebPartProps> implements IDynamicDataCallables {
 
     private _searchService: ISearchService;
     private _taxonomyService: ITaxonomyService;
-    private _templateServiceImport  = null;
     private _templateService: ITemplateService;
     private _extensibilityService: IExtensibilityService;
     private _propertyFieldCodeEditor = null;
@@ -167,17 +165,21 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
 
     public constructor() {
         super();
-        this._templateContentToDisplay = '';
-        this._availableLanguages = [];
-        this._templatePropertyPaneOptions = [];
-        this._availableManagedProperties = [];
+try {
+            this._templateContentToDisplay = '';
+            this._availableLanguages = [];
+            this._templatePropertyPaneOptions = [];
+            this._availableManagedProperties = [];
 
-        this.onPropertyPaneFieldChanged = this.onPropertyPaneFieldChanged.bind(this);
-        this._onUpdateAvailableProperties = this._onUpdateAvailableProperties.bind(this);
+            this.onPropertyPaneFieldChanged = this.onPropertyPaneFieldChanged.bind(this);
+            this._onUpdateAvailableProperties = this._onUpdateAvailableProperties.bind(this);
+} catch(ex) {
+    Logger.error(ex);
+}
     }
 
     public async render(): Promise<void> {
-
+try {
         if (!this._initComplete) {
             // Don't render until all init is complete
             return;
@@ -196,19 +198,27 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
         }
 
         this.renderCompleted();
+
+} catch(ex) {
+    Logger.error(ex);
+}       
+
     }
 
+    @override
     protected get disableReactivePropertyChanges(): boolean {
         // Set this to true if you don't want the reactive behavior.
         return false;
     }
 
+    @override
     protected get isRenderAsync(): boolean {
         return true;
     }
 
     protected renderCompleted(): void {
         super.renderCompleted();
+try {
         let renderElement = null;
         let refinerConfiguration: IRefinerConfiguration[] = [];
         let selectedFilters: IRefinementFilter[] = [];
@@ -333,9 +343,11 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
                 selectedPage: this.currentPageNumber,
                 selectedLayout: this.properties.selectedLayout,
                 onSearchResultsUpdate: async (results, mountingNodeId, searchService) => {
+
                     if (this.properties.selectedLayout in ResultsLayoutOption) {
                         let node = document.getElementById(mountingNodeId);
                         if (node) {
+                            Logger.write("[MSWP.SearchResultsWebPart.renderCompleted().onSearchResultsUpdate()]: KILLINGKILLINGKILLINGKILLINGKILLING component in mounting node.");
                             ReactDom.render(null, node);
                         }
                     }
@@ -394,19 +406,31 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
             } else {
                 renderElement = React.createElement('div', null);
             }
-        }
-
+        } 
+        
         ReactDom.render(renderElement, this.domElement);
+
+} catch(ex) {
+    Logger.error(ex);
+}   
+        
     }
 
     protected async onInit(): Promise<void> {
-
+try {
         // Disable PnP Telemetry
         const telemetry = PnPTelemetry.getInstance();
         if (telemetry.optOut) telemetry.optOut();
 
         // Initialize extensibility
-        this._extensibilityService = new ExtensibilityService();        
+        Logger.write("[MSWP.SearchResultsWebPart.onInit()]: Initializing Search Extensibility");
+        
+        const extSvcModule = await import (
+            /* webpackChunkName: 'extensibility-service' */
+            /* webpackMode: 'lazy' */
+            "../../services/ExtensibilityService/ExtensibilityService");
+
+        this._extensibilityService = extSvcModule.ExtensibilityServiceLoader.get();
 
         this.initializeRequiredProperties();
 
@@ -415,9 +439,20 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
 
         if (Environment.type === EnvironmentType.Local) {
             this._taxonomyService = new MockTaxonomyService();
-            this._templateServiceImport = await import('../../services/TemplateService/MockTemplateService');
-            this._templateService = new this._templateServiceImport.default(this.context.pageContext.cultureInfo.currentUICultureName, this.context, this._searchService, this._extensibilityService);
-            this._searchService = new MockSearchService();
+      
+            const mts = await import(
+                /* webpackChunkName: 'template-service' */
+                /* webpackMode: 'lazy' */
+              '../../services/TemplateService/MockTemplateService');
+            
+            this._templateService = new mts.default(this.context.pageContext.cultureInfo.currentUICultureName, this.context, this._searchService, this._extensibilityService);
+            
+            const mss = await import(
+                /* webpackChunkName: 'mock-search-service' */
+                /* webpackMode: 'lazy' */
+                '../../services/SearchService/MockSearchService');
+            this._searchService = new mss.default();
+
 
         } else {
             this._taxonomyService = new TaxonomyService(this.context.pageContext.site.absoluteUrl);
@@ -435,9 +470,18 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
                 this._timeZoneBias.Id = this.context.pageContext.legacyPageContext.webTimeZoneData.Id;
             }
 
-            this._searchService = new SearchService(this.context.pageContext, this.context.spHttpClient);
-            this._templateServiceImport = await import('../../services/TemplateService/TemplateService');
-            this._templateService = new this._templateServiceImport.default(this.context.spHttpClient, this.context.pageContext.cultureInfo.currentUICultureName, this._searchService, this._extensibilityService, this._timeZoneBias, this.context);
+            const ss = await import(
+                /* webpackChunkName: 'mock-search-service' */
+                /* webpackMode: 'lazy' */
+                '../../services/SearchService/SearchService');
+            this._searchService = new ss.default(this.context.pageContext, this.context.spHttpClient);
+      
+            const ts = await import(
+                /* webpackChunkName: 'template-service' */
+                /* webpackMode: 'lazy' */
+              '../../services/TemplateService/TemplateService');
+            
+            this._templateService = new ts.default(this.context.spHttpClient, this.context.pageContext.cultureInfo.currentUICultureName, this._searchService, this._extensibilityService, this._timeZoneBias, this.context);
         }
 
         this._searchService.initializeTemplateService(this._templateService);
@@ -466,6 +510,9 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
         // load extensibility components
         await this._loadExtensibility();
 
+} catch(ex) {
+    Logger.error(ex);
+}   
         return super.onInit();
     }
     
@@ -473,6 +520,7 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
      * Subscribes to URL query string change events
      */
     private _handleQueryStringChange() {
+try {        
         ((h) => {
             this._ops = history.pushState;
             h.pushState = (state, key, path) => {
@@ -482,10 +530,13 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
                 if (qkw && qkw.id === SearchComponentType.PageEnvironment) this.render();
             };
         })(window.history);
+} catch(ex) {
+    Logger.error(ex);
+}           
     }
 
     private async _registerExtensions() : Promise<void> {
-
+try {
         // Registers web components
         this._templateService.registerWebComponents(this.availableWebComponentDefinitions);
 
@@ -510,16 +561,26 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
             this.properties.selectedQueryModifierDisplayName = null;
         }
 
+} catch(ex) {
+    Logger.error(ex);
+}   
+
     }
 
     private async _loadExtensibility() : Promise<void> {
+try {        
+        Logger.write("[MSWP.SearchResultsWebPart._loadExtensibility()]");
         
         // Load extensibility library if present
-        this._loadedLibraries = await this._extensibilityService.loadExtensibilityLibraries(this.properties.extensibilityLibraries.map((i)=>Guid.parse(i)));
-
+        if(this.properties.extensibilityLibraries.length > 0) {
+            this._loadedLibraries = await this._extensibilityService.loadExtensibilityLibraries(this.properties.extensibilityLibraries.map((i)=>Guid.parse(i)));
+        }
+        
         // Load extensibility additions
         if (this._loadedLibraries && this._loadedLibraries.length>0) {
-
+            
+            Logger.write("[MSWP.SearchResultsWebPart._loadExtensibility()]: Getting All Extensions.");
+            
             const extensions = this._extensibilityService.getAllExtensions(this._loadedLibraries);
 
             // Add custom web components if any
@@ -541,13 +602,17 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
             
         }
 
-        this._availableDataSources = [ "SharePoint", "MicrosoftSearch" ];
+} catch(ex) {
+    Logger.error(ex);
+}   
 
         await this._registerExtensions();
 
     }
 
     private async _initQueryModifierInstance(queryModifierDefinition: IExtension<any>): Promise<BaseQueryModifier> {
+
+try {
 
         if (!queryModifierDefinition) {
             return null;
@@ -573,9 +638,14 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
             return null;
         }
 
+} catch(ex) {
+    Logger.error(ex);
+}   
+
     }
 
     private _convertToSortConfig(sortList: string): ISortFieldConfiguration[] {
+try {        
         let pairs = sortList.split(',');
         return pairs.map(sort => {
             let direction;
@@ -591,11 +661,17 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
                 sortDirection: direction
             } as ISortFieldConfiguration;
         });
+
+} catch(ex) {
+    Logger.error(ex);
+}   
+
     }
 
     private _convertToSynonymTable(synonymList: ISynonymFieldConfiguration[]): ISynonymTable {
+      
         let synonymsTable: ISynonymTable = {};
-
+try { 
         if (synonymList) {
             synonymList.forEach(item => {
                 const currentTerm = item.Term.toLowerCase();
@@ -615,14 +691,20 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
                 }
             });
         }
+
+} catch(ex) {
+    Logger.error(ex);
+}     
         return synonymsTable;
+      
     }
 
     private _splitSynonyms(value: string) {
-        return value.split(",").map(v => { return v.toLowerCase().trim().replace(/\"/g, ""); });
+        return value && value.length > 0 ? value.split(",").map(v => { return v.toLowerCase().trim().replace(/\"/g, ""); }) : [];
     }
 
     private _convertToSortList(sortList: ISortFieldConfiguration[]): Sort[] {
+try {        
         return sortList.map(e => {
 
             let direction;
@@ -646,13 +728,24 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
                 Direction: direction
             } as Sort;
         });
+
+} catch(ex) {
+    Logger.error(ex);
+}   
+
     }
 
     protected onDispose(): void {
+try {        
+        Logger.write("[MSWP.SearchResultsWebPart.onDispose()]: Unmounting SearchResultsWebPart.");
         window.history.pushState = this._ops;
         ReactDom.unmountComponentAtNode(this.domElement);
+} catch(ex) {
+    Logger.error(ex);
+}           
     }
-
+    
+    @override
     protected get dataVersion(): Version {
         return Version.parse('1.0');
     }
@@ -661,7 +754,7 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
      * Initializes the Web Part required properties if there are not present in the manifest (i.e. during an update scenario)
      */
     private initializeRequiredProperties() {
-
+try {
         if(!this.properties.extensibilityLibraries) this.properties.extensibilityLibraries = [];
         if(!this.properties.queryTemplate) this.properties.queryTemplate = "{searchTerms}";
 
@@ -754,10 +847,15 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
                 hideNavigation: false
             };
         }
+
+} catch(ex) {
+    Logger.error(ex);
+}   
+
     }
 
     protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {
-
+try {
         const templateParametersGroup = this._getTemplateFieldsGroup();
 
         let searchQueryGroups = [];
@@ -808,8 +906,14 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
                 }
             ]
         };
-    }
 
+} catch(ex) {
+    Logger.error(ex);
+}   
+
+    }
+    
+    @override
     protected get propertiesMetadata(): IWebPartPropertiesMetadata {
         return {
             'queryKeywords': {
@@ -819,7 +923,7 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
     }
 
     protected async loadPropertyPaneResources(): Promise<void> {
-
+try {
         const lib : IEditorLibrary = await this._extensibilityService.getEditorLibrary();
         
         this._extensibilityEditor = lib.getExtensibilityEditor();
@@ -853,10 +957,13 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
                 };
             });
         }
+} catch(ex) {
+    Logger.error(ex);
+}           
     }
 
     protected async onPropertyPaneFieldChanged(propertyPath: string) {
-
+try {
         if (!this.properties.useDefaultSearchQuery) {
             this.properties.defaultSearchQuery = '';
         }
@@ -956,6 +1063,11 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
 
             this.context.dynamicDataSourceManager.notifyPropertyChanged(SearchComponentType.SearchResultsWebPart);
         }
+
+} catch(ex) {
+    Logger.error(ex);
+}   
+
     }
 
     protected async onPropertyPaneConfigurationStart() {
@@ -1033,7 +1145,7 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
      * @returns the template content as a string
      */
     private async _initTemplate(): Promise<void> {
-
+try {
         if (this.properties.selectedLayout === ResultsLayoutOption.Custom) {
 
             // Reset options
@@ -1060,6 +1172,11 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
         this._templateService.registerResultTypes(this.properties.resultTypes, this.instanceId);
 
         await this._templateService.optimizeLoadingForTemplate(this._templateContentToDisplay);
+
+} catch(ex) {
+    Logger.error(ex);
+}   
+
     }
 
     private async tryLoadTemplatePropertyPaneResources(test:any) : Promise<void> {
@@ -1079,6 +1196,7 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
                 label: strings.Extensibility.ButtonLabel,
                 allowedExtensions: [ ExtensionTypes.QueryModifer, ExtensionTypes.WebComponent, ExtensionTypes.HandlebarsHelper ],
                 libraries: this._loadedLibraries,
+                extensibilityService: this._extensibilityService,
                 onLibraryAdded: async (id:Guid) => {
                     this.properties.extensibilityLibraries.push(id.toString());
                     await this._loadExtensibility();
@@ -1361,7 +1479,7 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
      * Make sure the dynamic property is correctly connected to the source if a search refiner component has been selected in options
      */
     private ensureDataSourceConnection() {
-
+try{
         // Refiner Web Part data source
         if (this.properties.refinerDataSourceReference) {
 
@@ -1397,6 +1515,9 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
                 this._searchVerticalSourceData.unregister(this.render);
             }
         }
+} catch(ex) {
+    Logger.error(ex);
+}           
     }
 
     /**
@@ -1887,7 +2008,7 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
     }
 
     public getPropertyValue(propertyId: string): ISearchResultSourceData {
-
+try {
         const refinementResults = (this._resultService && this._resultService.results) ? this._resultService.results.RefinementResults : [];
 
         const searchResultSourceData: ISearchResultSourceData = {
@@ -1901,7 +2022,7 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
             searchServiceConfiguration: this._searchService.getConfiguration(),
             verticalsInformation: this._verticalsInformation,
             defaultSelectedRefinementFilters: this._mapDefaultSelectedFiltersToRefinementResults(refinementResults),
-            filterReset: this._searchService.refinementFilters.length == 0,
+            filterReset: (this._searchService && this._searchService.refinementFilters) ? this._searchService.refinementFilters.length === 0 : true,
         };
 
         switch (propertyId) {
@@ -1909,7 +2030,12 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
                 return searchResultSourceData;
         }
 
-        throw new Error('Bad property id');
+} catch(ex) {
+    Logger.error(ex);
+}   
+        return null;
+
+        //throw new Error('Bad property id');
     }
 
     /**
@@ -1922,6 +2048,8 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
     private _mapDefaultSelectedFiltersToRefinementResults(refinementResults: IRefinementResult[]): IRefinementFilter[] {
 
         let updatedDefaultSelectedFilters: IRefinementFilter[] = [];
+        
+try {
 
         if (refinementResults.length > 0 && this.defaultSelectedFilters.length > 0) {
 
@@ -1964,6 +2092,9 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
             });
         }
 
+} catch(ex) {
+    Logger.error(ex);
+}   
         return updatedDefaultSelectedFilters;
     }
 
@@ -1972,7 +2103,7 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
      * @param properties the fetched properties
      */
     private _onUpdateAvailableProperties(properties: IComboBoxOption[]) {
-
+try {
         // Save the value in the root Web Part class to avoid fetching it again if the property list is requested again by any other property pane control
         this._availableManagedProperties = cloneDeep(properties);
 
@@ -1981,12 +2112,17 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
 
         Logger.write("[MSWP.SearchResultsWebPart._onUpdateAvailableProperties()]: On update available properties render", LogLevel.Verbose);
         this.render();
+
+} catch(ex) {
+    Logger.error(ex);
+}           
     }
 
     /**
      * Initializes theme variant properties
      */
     private initThemeVariant(): void {
+try {
         // Consume the new ThemeProvider service
         this._themeProvider = this.context.serviceScope.consume(ThemeProvider.serviceKey);
 
@@ -1995,6 +2131,10 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
 
         // Register a handler to be notified if the theme variant changes
         this._themeProvider.themeChangedEvent.add(this, this._handleThemeChangedEvent.bind(this));
+
+} catch(ex) {
+    Logger.error(ex);
+}           
     }
 
     /**
@@ -2002,19 +2142,24 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
      * @param args The new theme
      */
     private _handleThemeChangedEvent(args: ThemeChangedEventArgs): void {
-
+try {
         if (!isEqual(this._themeVariant, args.theme)) {
             this._themeVariant = args.theme;
             Logger.write("[MSWP.SearchResultsWebPart._handleThemeChangedEvent()]: Theme changed render");
             this.render();
         }
+
+} catch(ex) {
+    Logger.error(ex);
+}   
+
     }
 
     /**
      * Binds event fired from pagination web components
      */
     private bindPagingEvents() {
-
+try {
         this.domElement.addEventListener('pageNumberUpdated', ((ev: CustomEvent) => {
 
             // We ensure the event if not propagated outside the component (i.e. other Web Part instances)
@@ -2027,6 +2172,11 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
             this.render();
 
         }).bind(this));
+
+} catch(ex) {
+    Logger.error(ex);
+}   
+        
     }
 
     /**
