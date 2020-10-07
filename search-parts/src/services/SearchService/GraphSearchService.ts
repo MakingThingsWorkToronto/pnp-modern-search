@@ -9,7 +9,18 @@ import { SortDirection,Sort } from '@pnp/sp';
 import { IManagedPropertyInfo, ISearchResults, ISearchVerticalInformation } from 'search-extensibility';
 import ITemplateService from '../TemplateService/ITemplateService';
 
-class GraphSearchService implements ISearchService {
+export enum GraphSearchEntityTypes {
+    message = "message",
+    event = "event",
+    drive = "drive",
+    driveItem = "driveItem",
+    list = "list",
+    listItem = "listItem",
+    site = "site",
+    externalItem = "externalItem"
+}
+
+export class GraphSearchService implements ISearchService {
 
     public resultsCount: number;
     public selectedProperties: string[];
@@ -128,6 +139,12 @@ class GraphSearchService implements ISearchService {
         if(this.resultSourceId.indexOf("externalItem") >= -1) return this.selectedProperties;
         return [];
     }
+
+    private _getAllEntityTypes(): string[] {
+        const types = Object.keys(GraphSearchEntityTypes);
+        return types.filter((value:string,index:number)=>types.indexOf(value)===index);
+    }
+
     private _getResultSources(): string[] {
         if(this.resultSourceId) {
             return this.resultSourceId.split(","); // split the result source IDs by commans
