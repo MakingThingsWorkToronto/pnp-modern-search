@@ -21,6 +21,7 @@ import { ISharePointSearch } from './ISharePointSearch';
 import { trimStart, trimEnd } from '@microsoft/sp-lodash-subset';
 import { sp, SearchQuery, SearchResults, SPRest, Sort, SearchSuggestQuery, SortDirection, Web } from '@pnp/sp';
 import ITemplateService from '../TemplateService/ITemplateService';
+import { IPropertyPaneGroup } from '@microsoft/sp-property-pane';
 
 class SearchService implements ISearchService {
     private _initialSearchResult: SearchResults = null;
@@ -984,6 +985,16 @@ class SearchService implements ISearchService {
 
     public initializeTemplateService(svc: ITemplateService) : void {
         this._templateService = svc;
+    }
+
+    public async getPropertyPane() : Promise<IPropertyPaneGroup> {
+        
+        return {
+            groupName: "SharePoint Datasource",
+            groupFields: [],
+            isCollapsed: false
+        };
+        
     }
 }
 

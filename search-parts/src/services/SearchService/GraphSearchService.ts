@@ -22,6 +22,7 @@ export enum GraphSearchEntityTypes {
 
 export class GraphSearchService implements IGraphSearchService {
 
+    public entityTypes:string[];
     public resultsCount: number;
     public selectedProperties: string[];
     public queryTemplate?: string;
@@ -58,32 +59,33 @@ export class GraphSearchService implements IGraphSearchService {
 
     public async search(kqlQuery: string, searchParams: IGraphSearchParams): Promise<ISearchResults> {
 
-        const page : number = typeof searchParams.pageNumber === "number" 
-                                    ? searchParams.pageNumber
-                                    : 1;
+        const page : number = typeof searchParams.pageNumber === "number" ? searchParams.pageNumber : 1;
         const startRow : number = (page-1)* this.resultsCount;
         const client = await this._webPartContext.msGraphClientFactory.getClient();
-        
-        const refiners = this.refiners.map((value:IRefinerConfiguration,index:number,array:IRefinerConfiguration[]) => {
-            return {
-                field: value.refinerName,
-                size: 100, //value.refinerSize,
-                bucketDefinition: {
-                    sortBy: (value.refinerSortType === RefinersSortOption.ByNumberOfResults ? "count" : "keyAsString"),
-                    isDescending: (value.refinerSortDirection === RefinerSortDirection.Descending ? "true" : "false"),
-                    minimumCount: 0
-                }
-            };
-        });
+        //const appliedRefiners = this.refinementFilters.map((value:IRe))
+        const requestRefiners = !this.refiners || this.refiners.length === 0 
+                ? [] 
+                : this.refiners.map((value:IRefinerConfiguration,index:number,array:IRefinerConfiguration[]) => {
+                        return {
+                            field: value.refinerName,
+                            size: 100, //value.refinerSize,
+                            bucketDefinition: {
+                                sortBy: (value.refinerSortType === RefinersSortOption.ByNumberOfResults ? "count" : "keyAsString"),
+                                isDescending: (value.refinerSortDirection === RefinerSortDirection.Descending ? "true" : "false"),
+                                minimumCount: 0
+                            }
+                        };
+                    });
 
         const request = {
             requests: [
                 {
                     contentSources: this._getResultSources(),
-                    entityTypes: [],
+                    entityTypes: searchParams.entityTypes,
                     query: {
                         query_string: kqlQuery + " " + this.queryTemplate
                     },
+                    aggregations: requestRefiners,
                     from: startRow,
                     size: this.resultsCount,
                     stored_fields: this._getStoredFields()

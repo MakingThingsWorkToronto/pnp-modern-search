@@ -4,6 +4,7 @@ import { ISearchVertical } from '../../models/ISearchVertical';
 import { ISearchContext, IManagedPropertyInfo } from 'search-extensibility';
 import { ISharePointSearch } from './ISharePointSearch';
 import ITemplateService from '../TemplateService/ITemplateService';
+import { IPropertyPaneGroup } from "@microsoft/sp-property-pane";
 
 interface ISearchService extends ISearchServiceConfiguration, ISearchContext {
 
@@ -48,7 +49,16 @@ interface ISearchService extends ISearchServiceConfiguration, ISearchContext {
      */
     getAvailableQueryLanguages(): Promise<any[]>;
 
+    /**
+     * Initializes the template service within the search service
+     * @param svc the template service
+     */
     initializeTemplateService(svc: ITemplateService) : void;
+
+    /**
+     * Initializes the property pane for the search service
+     */
+    getPropertyPane() : Promise<IPropertyPaneGroup>;
     
 }
 

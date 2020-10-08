@@ -7,6 +7,7 @@ import ITemplateService from '../TemplateService/ITemplateService';
 import { ISearchVertical } from '../../models/ISearchVertical';
 import { IManagedPropertyInfo, IRefinerConfiguration } from 'search-extensibility';
 import { ISharePointSearch } from './ISharePointSearch';
+import { IPropertyPaneGroup } from '@microsoft/sp-property-pane';
 
 class MockSearchService implements ISearchService {
 
@@ -419,6 +420,17 @@ class MockSearchService implements ISearchService {
   public initializeTemplateService(svc: ITemplateService) : void {
     this._templateService = svc;
   }
+  
+  public async getPropertyPane() : Promise<IPropertyPaneGroup> {
+        
+    return {
+        groupName: "Mock Datasource",
+        groupFields: [],
+        isCollapsed: false
+    };
+    
+  }
+
 }
 
 export default MockSearchService;
