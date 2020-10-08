@@ -53,6 +53,13 @@ export abstract class BaseWebComponent extends HTMLElement implements IWebCompon
         this.all.innerHTML = this.innerHTML;
         this.all.styles = this.style;
 
+        // Added theme variant to be available in components
+        if(this.context && this.context.webPart && this.context.webPart.serviceScope) {
+            const themeProvider = this.context.webPart.serviceScope.consume(ThemeProvider.serviceKey);
+            const themeVariant = themeProvider.tryGetTheme();
+            this._themeVariant = this.all.themeVariant = themeVariant;
+        }
+
         return this.all;
 
     }
