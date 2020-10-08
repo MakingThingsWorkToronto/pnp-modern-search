@@ -8,6 +8,7 @@ import { SortDirection,Sort } from '@pnp/sp';
 import { IManagedPropertyInfo, IRefinerConfiguration, ISearchResults, ISearchVerticalInformation, RefinerSortDirection, RefinersSortOption } from 'search-extensibility';
 import ITemplateService from '../TemplateService/ITemplateService';
 import { IGraphSearchService } from './IGraphSearchService';
+import { IPropertyPaneGroup } from '@microsoft/sp-property-pane';
 
 export enum GraphSearchEntityTypes {
     message = "message",
@@ -81,7 +82,7 @@ export class GraphSearchService implements IGraphSearchService {
             requests: [
                 {
                     contentSources: this._getResultSources(),
-                    entityTypes: searchParams.entityTypes,
+                    entityTypes: this.entityTypes,
                     query: {
                         query_string: kqlQuery + " " + this.queryTemplate
                     },
@@ -225,7 +226,16 @@ export class GraphSearchService implements IGraphSearchService {
     public initializeTemplateService(svc:ITemplateService): void {
         this._templateService = svc;
     }
-
+  
+    public async getPropertyPane() : Promise<IPropertyPaneGroup> {
+        
+        return {
+            groupName: "Mock Datasource",
+            groupFields: [],
+            isCollapsed: false
+        };
+    
+    }
 }
 
 export default GraphSearchService;
