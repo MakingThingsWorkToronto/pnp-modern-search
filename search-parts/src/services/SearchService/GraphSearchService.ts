@@ -1,4 +1,3 @@
-import ISearchService from './ISearchService';
 import { IGraphSearchParams } from './IGraphSearchParams';
 import { ISearchServiceConfiguration } from '../../models/ISearchServiceConfiguration';
 import { PageContext } from '@microsoft/sp-page-context';
@@ -6,8 +5,9 @@ import { TokenService } from '../TokenService';
 import { SPHttpClient } from '@microsoft/sp-http';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { SortDirection,Sort } from '@pnp/sp';
-import { IManagedPropertyInfo, ISearchResults, ISearchVerticalInformation } from 'search-extensibility';
+import { IManagedPropertyInfo, IRefinerConfiguration, ISearchResults, ISearchVerticalInformation, RefinerSortDirection, RefinersSortOption } from 'search-extensibility';
 import ITemplateService from '../TemplateService/ITemplateService';
+import { IGraphSearchService } from './IGraphSearchService';
 
 export enum GraphSearchEntityTypes {
     message = "message",
@@ -20,7 +20,7 @@ export enum GraphSearchEntityTypes {
     externalItem = "externalItem"
 }
 
-export class GraphSearchService implements ISearchService {
+export class GraphSearchService implements IGraphSearchService {
 
     public resultsCount: number;
     public selectedProperties: string[];
@@ -28,7 +28,7 @@ export class GraphSearchService implements ISearchService {
     public resultSourceId?: string;
     public sortList?: Sort[];
     public enableQueryRules?: boolean;
-    public refiners?: any[];
+    public refiners?: IRefinerConfiguration[];
     public refinementFilters?: string[];
     public synonymTable?: { [key: string]: string[]; };
     public queryCulture: number;
@@ -63,6 +63,18 @@ export class GraphSearchService implements ISearchService {
                                     : 1;
         const startRow : number = (page-1)* this.resultsCount;
         const client = await this._webPartContext.msGraphClientFactory.getClient();
+        
+        const refiners = this.refiners.map((value:IRefinerConfiguration,index:number,array:IRefinerConfiguration[]) => {
+            return {
+                field: value.refinerName,
+                size: 100, //value.refinerSize,
+                bucketDefinition: {
+                    sortBy: (value.refinerSortType === RefinersSortOption.ByNumberOfResults ? "count" : "keyAsString"),
+                    isDescending: (value.refinerSortDirection === RefinerSortDirection.Descending ? "true" : "false"),
+                    minimumCount: 0
+                }
+            };
+        });
 
         const request = {
             requests: [
@@ -79,21 +91,27 @@ export class GraphSearchService implements ISearchService {
             ]
         };
 
-        const response = await client.api("/search/query").version("beta").post(request);
+        const response = await client.api("search/query").version("beta").post(request);
 
-        return this._parseResponse(kqlQuery, page, response);
+        const results = this._parseResponse(response);
+        results.QueryKeywords = kqlQuery;
+        results.PaginationInformation.CurrentPage = page;
+        results.PaginationInformation.MaxResultsPerPage = this.resultsCount;
+        
+        return results;
+
     }
 
-    private _parseResponse(query: string, pageNumber: number, response:any) : ISearchResults {
+    private _parseResponse(response:any) : ISearchResults {
  
         let results: ISearchResults = {
-            QueryKeywords: query,
+            QueryKeywords: "",
             RelevantResults: [],
             SecondaryResults: [],
             RefinementResults: [],
             PaginationInformation: {
-                CurrentPage: pageNumber,
-                MaxResultsPerPage: this.resultsCount,
+                CurrentPage: 1,
+                MaxResultsPerPage: 0,
                 TotalRows: 0
             }
         };
@@ -140,7 +158,7 @@ export class GraphSearchService implements ISearchService {
         return [];
     }
 
-    private _getAllEntityTypes(): string[] {
+    public getEntityTypes(): string[] {
         const types = Object.keys(GraphSearchEntityTypes);
         return types.filter((value:string,index:number)=>types.indexOf(value)===index);
     }
