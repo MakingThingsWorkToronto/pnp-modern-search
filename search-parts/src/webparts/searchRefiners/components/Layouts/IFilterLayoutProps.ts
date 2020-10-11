@@ -1,7 +1,6 @@
 import { IRefinementResult, IRefinerConfiguration, IRefinementFilter } from "search-extensibility";
-import { RefinementFilterOperationCallback, IUserService } from 'search-extensibility';
+import { ITemplateService, RefinementFilterOperationCallback, IUserService } from 'search-extensibility';
 import { IReadonlyTheme } from "@microsoft/sp-component-base";
-import ITemplateService from "../../../../services/TemplateService/ITemplateService";
 
 interface IFilterLayoutProps {
 

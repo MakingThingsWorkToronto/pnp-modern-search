@@ -21,11 +21,10 @@ import * as strings from 'SearchBoxWebPartStrings';
 import ISearchBoxWebPartProps from './ISearchBoxWebPartProps';
 import { IDynamicDataCallables, IDynamicDataPropertyDefinition } from '@microsoft/sp-dynamic-data';
 import { ISearchBoxContainerProps } from './components/SearchBoxContainer/ISearchBoxContainerProps';
-import ISearchService from '../../services/SearchService/ISearchService';
-import { PageOpenBehavior, QueryPathBehavior, UrlHelper } from '../../helpers/UrlHelper';
+import { UrlHelper } from '../../helpers/UrlHelper';
 import SearchBoxContainer from './components/SearchBoxContainer/SearchBoxContainer';
 import { SearchComponentType } from '../../models/SearchComponentType';
-import { BaseSuggestionProvider, IExtensibilityService, IExtension, ISuggestionProviderInstance, ExtensionHelper, ExtensionTypes, IExtensibilityLibrary, IEditorLibrary } from 'search-extensibility';
+import { PageOpenBehavior, QueryPathBehavior, ISearchService, BaseSuggestionProvider, IExtensibilityService, IExtension, ISuggestionProviderInstance, ExtensionHelper, ExtensionTypes, IExtensibilityLibrary, IEditorLibrary, ISearchServiceInitializer } from 'search-extensibility';
 import { SharePointDefaultSuggestionProvider } from '../../providers/SharePointDefaultSuggestionProvider';
 import { Toggle } from 'office-ui-fabric-react/lib/Toggle';
 import { ThemeProvider, ThemeChangedEventArgs, IReadonlyTheme } from '@microsoft/sp-component-base';
@@ -35,6 +34,8 @@ import { Guid } from '@microsoft/sp-core-library';
 import PnPTelemetry from "@pnp/telemetry-js";
 import { LogLevel } from '@pnp/logging';
 import Logger from '../../services/LogService/LogService';
+import { TokenService } from '../../services/TokenService/TokenService';
+import LocalizationHelper from '../../helpers/LocalizationHelper';
 
 export default class SearchBoxWebPart extends BaseClientSideWebPart<ISearchBoxWebPartProps> implements IDynamicDataCallables {
 
@@ -295,6 +296,23 @@ export default class SearchBoxWebPart extends BaseClientSideWebPart<ISearchBoxWe
     private async initSearchService() : Promise<void> {
 
         if (this.properties.enableQuerySuggestions) {
+
+            const initConfig : ISearchServiceInitializer = {
+                webPartContext: this.context,
+                templateService: null,
+                tokenService: new TokenService(this.context.pageContext, this.context.spHttpClient),
+                config: {
+                    queryKeywords: "",
+                    queryTemplate: "",
+                    defaultSearchQuery: "",
+                    useDefaultSearchQuery: false,
+                    searchQueryLanguage: LocalizationHelper.getLocaleId(this.context.pageContext.cultureInfo.currentCultureName),
+                    selectedProperties: [],
+                    sortList: [],
+                    sortableFields: []
+                }
+            };
+
             if (Environment.type === EnvironmentType.Local) {
                 const mss = await import(
                     /* webpackChunkName: 'mock-search-service' */
@@ -306,8 +324,11 @@ export default class SearchBoxWebPart extends BaseClientSideWebPart<ISearchBoxWe
                     /* webpackChunkName: 'mock-search-service' */
                     /* webpackMode: 'lazy' */
                     '../../services/SearchService/SearchService');
-                this._searchService = new ss.default(this.context.pageContext, this.context.spHttpClient);
+                this._searchService = new ss.default();
             }
+
+            this._searchService.init(initConfig);
+
         }
 
     }

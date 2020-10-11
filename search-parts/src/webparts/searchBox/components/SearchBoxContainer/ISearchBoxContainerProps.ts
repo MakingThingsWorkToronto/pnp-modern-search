@@ -1,6 +1,4 @@
-import { PageOpenBehavior, QueryPathBehavior } from '../../../../helpers/UrlHelper';
-import ISearchService from       '../../../../services/SearchService/ISearchService';
-import { ISuggestionProviderInstance } from 'search-extensibility';
+import { ISearchService, PageOpenBehavior, QueryPathBehavior, ISuggestionProviderInstance } from 'search-extensibility';
 import { IReadonlyTheme } from '@microsoft/sp-component-base';
 
 export interface ISearchBoxContainerProps {

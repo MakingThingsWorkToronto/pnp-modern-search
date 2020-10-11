@@ -1,45 +1,41 @@
-import ISearchService from './ISearchService';
-import { ISearchResults, ITimeZoneBias, ISearchResult, ISearchVerticalInformation } from 'search-extensibility';
+import { ISearchResults, ITimeZoneBias, ISearchResult, ISearchVerticalInformation, IRefinementFilter, IExtensionContext, IQueryModifierInstance, ExtensionTypes, ISearchServiceInitializer, ISearchParams } from 'search-extensibility';
 import { intersection, clone } from '@microsoft/sp-lodash-subset';
 import { Sort } from '@pnp/sp';
-import { ISearchServiceConfiguration } from '../../models/ISearchServiceConfiguration';
-import ITemplateService from '../TemplateService/ITemplateService';
-import { ISearchVertical } from '../../models/ISearchVertical';
-import { IManagedPropertyInfo, IRefinerConfiguration } from 'search-extensibility';
-import { ISharePointSearch } from './ISharePointSearch';
+import { ITemplateService, ISearchServiceConfiguration, ISearchVertical, ISearchService, ICommonSearchProps, IManagedPropertyInfo, IRefinerConfiguration } from 'search-extensibility';
 import { IPropertyPaneGroup } from '@microsoft/sp-property-pane';
+import { SearchHelper } from '../../helpers/SearchHelper';
+import { ISearchResultsWebPartProps } from '../../webparts/searchResults/ISearchResultsWebPartProps';
 
 class MockSearchService implements ISearchService {
 
   private _templateService : ITemplateService = null;
   private _suggestions: string[];
   private _resultsCount: number;
-  private _selectedProperties: string[];
+  private _config: ICommonSearchProps;
   private _queryTemplate: string;
   private _resultSourceId: string;
   private _sortList: Sort[];
   private _enableQueryRules: boolean;
   private _refiners: IRefinerConfiguration[];
-  private _refinementFilters: string[];
+  private _refinementFilters: IRefinementFilter[];
   private _queryCulture: number;
-  
+
+  public useOldIcons: boolean = false;
+
+  public extensionType: string = ExtensionTypes.SearchDatasource;
+  public context: IExtensionContext = null;
+
   public timeZoneId: number;
   public synonymTable?: { [key: string]: string[]; };
 
   public get resultsCount(): number { return this._resultsCount; }
   public set resultsCount(value: number) { this._resultsCount = value; }
 
-  public set selectedProperties(value: string[]) { this._selectedProperties = value; }
-  public get selectedProperties(): string[] { return this._selectedProperties; }
-
-  public set queryTemplate(value: string) { this._queryTemplate = value; }
-  public get queryTemplate(): string { return this._queryTemplate; }
+  public set config(value: ICommonSearchProps) { this._config = value; }
+  public get config(): ICommonSearchProps { return this._config; }
 
   public set resultSourceId(value: string) { this._resultSourceId = value; }
   public get resultSourceId(): string { return this._resultSourceId; }
-
-  public set sortList(value: Sort[]) { this._sortList = value; }
-  public get sortList(): Sort[] { return this._sortList; }
 
   public set enableQueryRules(value: boolean) { this._enableQueryRules = value; }
   public get enableQueryRules(): boolean { return this._enableQueryRules; }
@@ -47,8 +43,8 @@ class MockSearchService implements ISearchService {
   public set refiners(value: IRefinerConfiguration[]) { this._refiners = value; }
   public get refiners(): IRefinerConfiguration[] { return this._refiners; }
 
-  public set refinementFilters(value: string[]) { this._refinementFilters = value; }
-  public get refinementFilters(): string[] { return this._refinementFilters; }
+  public set refinementFilters(value: IRefinementFilter[]) { this._refinementFilters = value; }
+  public get refinementFilters(): IRefinementFilter[] { return this._refinementFilters; }
 
   public get queryCulture(): number { return this._queryCulture; }
   public set queryCulture(value: number) { this._queryCulture = value; }
@@ -245,14 +241,21 @@ class MockSearchService implements ISearchService {
       "hr policies",
       "human resources procedures"
     ];
+  }  
+
+  public async init(config: ISearchServiceInitializer) : Promise<void> {
+    this._config = config.config;
+    return;
   }
-   
 
-  private _search(query: string, pageNumber?: number, useOldSPIcons?: boolean): Promise<ISearchResults> {
-
+  public search(params: ISearchParams) : Promise<ISearchResults> {
+    const query = params.kqlQuery;
+    const pageNumber = params.pageNumber;
     const p1 = new Promise<ISearchResults>((resolve) => {
 
-      const filters: string[] = this.refinementFilters;
+      const selectedFilters: string[] = this.refinementFilters.length > 0 
+        ? SearchHelper.buildRefinementQueryString(this.refinementFilters) 
+        : [];
       let searchResults = clone(this._searchResults);
       searchResults.QueryKeywords = query;
       const filteredResults: ISearchResult[] = [];
@@ -260,7 +263,7 @@ class MockSearchService implements ISearchService {
       if (this.refinementFilters.length > 0) {
       
         searchResults.RelevantResults.map((searchResult) => {
-          const filtered = intersection(filters, searchResult.RefinementTokenValues.split(','));
+          const filtered = intersection(selectedFilters, searchResult.RefinementTokenValues.split(','));
           if (filtered.length > 0) {
             filteredResults.push(searchResult);
           }
@@ -284,10 +287,6 @@ class MockSearchService implements ISearchService {
     });
 
     return p1;
-  }
-
-  public search(query: string, params: ISharePointSearch) : Promise<ISearchResults> {
-    return this._search(query, params.pageNumber, params.useOldSPIcons);
   }
 
   private _paginate(array, pageSize: number, pageNumber: number) {
@@ -328,14 +327,10 @@ class MockSearchService implements ISearchService {
 
   public getConfiguration(): ISearchServiceConfiguration {
     return {
-      enableQueryRules: this.enableQueryRules,
-      queryTemplate: this.queryTemplate,
+      config: this._config,
       refinementFilters: this.refinementFilters,
       refiners: this.refiners,
-      resultSourceId: this.resultSourceId,
       resultsCount: this.resultsCount,
-      selectedProperties: this.selectedProperties,
-      sortList: this.sortList,
       queryCulture: this.queryCulture,
       timeZoneId: null
     };
@@ -347,7 +342,7 @@ class MockSearchService implements ISearchService {
    * @param searchVerticalsConfiguration the search verticals configuration
    * @param enableQueryRules enable query rules or not
    */
-  public getSearchVerticalCounts(queryText: string, searchVerticals: ISearchVertical[], enableQueryRules: boolean): Promise<ISearchVerticalInformation[]> {
+  public getSearchVerticalCounts(queryText: string, searchVerticals: ISearchVertical[]): Promise<ISearchVerticalInformation[]> {
 
     let verticalInformation: ISearchVerticalInformation[] = [];
 
@@ -416,12 +411,8 @@ class MockSearchService implements ISearchService {
   public async validateSortableProperty(property: string): Promise<boolean> {
     return Promise.resolve(true);
   }
-
-  public initializeTemplateService(svc: ITemplateService) : void {
-    this._templateService = svc;
-  }
   
-  public async getPropertyPane() : Promise<IPropertyPaneGroup> {
+  public getPropertyPane(props: ISearchResultsWebPartProps) : IPropertyPaneGroup {
         
     return {
         groupName: "Mock Datasource",
@@ -429,6 +420,10 @@ class MockSearchService implements ISearchService {
         isCollapsed: false
     };
     
+  }
+
+  public getHashKey():string {
+    return "mockservice";
   }
 
 }

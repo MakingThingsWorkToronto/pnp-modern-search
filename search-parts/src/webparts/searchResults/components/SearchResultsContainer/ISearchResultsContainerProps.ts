@@ -1,14 +1,10 @@
-import ISearchService from '../../../../services/SearchService/ISearchService';
+import { ISearchService, ICommonSearchProps } from 'search-extensibility';
 import ITaxonomyService from '../../../../services/TaxonomyService/ITaxonomyService';
 import { DisplayMode } from '@microsoft/sp-core-library';
-import ITemplateService from '../../../../services/TemplateService/ITemplateService';
-import ISortableFieldConfiguration from '../../../../models/ISortableFieldConfiguration';
-import { ISearchResultType } from '../../../../models/ISearchResultType';
+import { ITemplateService, ResultsLayoutOption, ISearchResultType } from 'search-extensibility';
 import {ICustomTemplateFieldValue} from '../../../../services/ResultService/ResultService';
 import SearchResultsOperationCallback from '../../../../models/SearchResultsOperationCallback';
 import { IReadonlyTheme } from '@microsoft/sp-component-base';
-import ResultsLayoutOption from '../../../../models/ResultsLayoutOption';
-import { ISortFieldConfiguration } from '../../../../models/ISortFieldConfiguration';
 import { IPagingSettings } from '../../../../models/IPagingSettings';
 
 interface ISearchResultsContainerProps {
@@ -29,18 +25,17 @@ interface ISearchResultsContainerProps {
     taxonomyService: ITaxonomyService;
 
     /**
-     * The search query keywords
+     * Search configuration
      */
-    queryKeywords: string;
+    config: ICommonSearchProps;
 
     /**
-     * The managed properties used as default sort fields for the query
-     */
+     * MOVED TO CONFIG IN V4
+    //The managed properties used as default sort fields for the query
     sortList: ISortFieldConfiguration[];
-
-    /**
-     * The managed properties used as sortable fields for the query
-     */
+    // The search query keywords
+    queryKeywords: string;
+    // The managed properties used as sortable fields for the query
     sortableFields: ISortableFieldConfiguration[];
 
     /**

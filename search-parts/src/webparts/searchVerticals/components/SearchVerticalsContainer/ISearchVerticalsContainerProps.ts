@@ -1,6 +1,6 @@
-import { ISearchVertical } from "../../../../models/ISearchVertical";
+import { ISearchVertical } from "search-extensibility";
 import { IReadonlyTheme } from "@microsoft/sp-component-base";
-import { ITokenService } from "../../../../services/TokenService";
+import { ITokenService } from "search-extensibility";
 
 interface ISearchVerticalsContainerProps {
 

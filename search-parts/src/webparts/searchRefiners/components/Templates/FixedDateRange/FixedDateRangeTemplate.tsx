@@ -1,12 +1,11 @@
 import * as React from "react";
-import { IRefinerProps, IRefinerState, IRefinementValue, RefinementOperator } from "search-extensibility";
+import { ITemplateService, IRefinerProps, IRefinerState, IRefinementValue, RefinementOperator } from "search-extensibility";
 import { IChoiceGroupOption, ChoiceGroup } from "office-ui-fabric-react/lib/ChoiceGroup";
 import { Guid } from '@microsoft/sp-core-library';
 import update from 'immutability-helper';
 import * as strings from 'SearchRefinersWebPartStrings';
 import { ITheme } from "@uifabric/styling";
 import { find } from "@microsoft/sp-lodash-subset";
-import ITemplateService from '../../../../../services/TemplateService/ITemplateService';
 
 //CSS
 import styles from './FixedDateRangeTemplate.module.scss';

@@ -1,11 +1,10 @@
 import UpdateSortOperationCallback from '../../../../models/UpdateSortOperationCallback';
-import { SortDirection } from "@pnp/sp";
-import ISortableFieldConfiguration from '../../../../models/ISortableFieldConfiguration';
+import { ISortableFieldConfiguration, ISortFieldDirection } from 'search-extensibility';
 
 interface ISortPanelProps {
     sortableFieldsConfiguration: ISortableFieldConfiguration[];
     onUpdateSort: UpdateSortOperationCallback;
-    sortDirection?:SortDirection;
+    sortDirection?:ISortFieldDirection;
     sortField?:string;
 }
   

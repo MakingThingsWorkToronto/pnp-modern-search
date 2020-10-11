@@ -7,10 +7,9 @@ import FileTypeTemplate from "./FileType/FileTypeTemplate";
 import ContainerTreeTemplate from "./ContainerTree/ContainerTreeTemplate";
 import { CustomTemplate } from "./CustomTemplate/CustomTemplate";
 import { IRefinementResult, IRefinementValue, RefinerTemplateOption, IRefinerConfiguration } from "search-extensibility";
-import { RefinementFilterOperationCallback, IUserService } from 'search-extensibility';
+import { ITemplateService, RefinementFilterOperationCallback, IUserService } from 'search-extensibility';
 import { IReadonlyTheme } from '@microsoft/sp-component-base';
 import ISearchRefinersTemplateContext from './CustomTemplate/ISearchRefinersTemplateContext';
-import ITemplateService from '../../../../services/TemplateService/ITemplateService';
 
 export interface ITemplateRendererProps {
 

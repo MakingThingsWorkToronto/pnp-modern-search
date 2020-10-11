@@ -17,27 +17,22 @@ import {
     PropertyPaneHorizontalRule,
     PropertyPaneDropdown,
     IPropertyPaneDropdownOption,
-    PropertyPaneLabel
+    PropertyPaneLabel, IPropertyPanePage
 } from "@microsoft/sp-property-pane";
 import * as strings from 'SearchResultsWebPartStrings';
 import SearchResultsContainer from './components/SearchResultsContainer/SearchResultsContainer';
 import { ISearchResultsWebPartProps } from './ISearchResultsWebPartProps';
-import ISearchService from '../../services/SearchService/ISearchService';
 import ITaxonomyService from '../../services/TaxonomyService/ITaxonomyService';
-import ResultsLayoutOption from '../../models/ResultsLayoutOption';
-import ITemplateService from '../../services/TemplateService/ITemplateService';
-import { isEmpty, find, sortBy, cloneDeep, isEqual, findIndex } from '@microsoft/sp-lodash-subset';
+import { isEmpty, find, sortBy, cloneDeep, isEqual, findIndex, each } from '@microsoft/sp-lodash-subset';
 import TaxonomyService from '../../services/TaxonomyService/TaxonomyService';
 import MockTaxonomyService from '../../services/TaxonomyService/MockTaxonomyService';
 import ISearchResultsContainerProps from './components/SearchResultsContainer/ISearchResultsContainerProps';
 import { SortDirection, Sort } from '@pnp/sp';
-import { ISortFieldConfiguration, ISortFieldDirection } from '../../models/ISortFieldConfiguration';
 import { ISynonymFieldConfiguration } from '../../models/ISynonymFieldConfiguration';
-import { ResultTypeOperator } from '../../models/ISearchResultType';
 import IResultService from '../../services/ResultService/IResultService';
 import { ResultService, IRenderer } from '../../services/ResultService/ResultService';
 import { IDynamicDataCallables, IDynamicDataPropertyDefinition } from '@microsoft/sp-dynamic-data';
-import { IRefinerConfiguration, ITimeZoneBias, IRefinementFilter, ISearchVerticalInformation, IRefinementResult, IRefinementValue, IExtensibilityLibrary, IEditorLibrary } from 'search-extensibility';
+import { ISearchService, IRefinerConfiguration, ITimeZoneBias, IRefinementFilter, ISearchVerticalInformation, IRefinementResult, IRefinementValue, IExtensibilityLibrary, IEditorLibrary, ISearchServiceInitializer } from 'search-extensibility';
 import IDynamicDataService from '../../services/DynamicDataService/IDynamicDataService';
 import { DynamicDataService } from '../../services/DynamicDataService/DynamicDataService';
 import { DynamicProperty, ThemeProvider, IReadonlyTheme, ThemeChangedEventArgs } from '@microsoft/sp-component-base';
@@ -50,7 +45,7 @@ import ISearchVerticalSourceData from '../../models/ISearchVerticalSourceData';
 import LocalizationHelper from '../../helpers/LocalizationHelper';
 import { IDropdownOption } from 'office-ui-fabric-react/lib/Dropdown';
 import { IComboBoxOption } from 'office-ui-fabric-react/lib/ComboBox';
-import { BaseQueryModifier, IExtensibilityService, IExtension, IQueryModifierInstance, ExtensionHelper, ExtensionTypes } from 'search-extensibility';
+import { ResultTypeOperator, ISortFieldConfiguration, ISortFieldDirection, ResultsLayoutOption, ITemplateService, ICommonSearchProps, BaseQueryModifier, IExtensibilityService, IExtension, IQueryModifierInstance, ExtensionHelper, ExtensionTypes } from 'search-extensibility';
 import { AvailableComponents } from '../../components/AvailableComponents';
 import { BaseClientSideWebPart, IWebPartPropertiesMetadata, PropertyPaneButton } from "@microsoft/sp-webpart-base";
 import { IPropertyPaneGroup } from "@microsoft/sp-property-pane";
@@ -63,40 +58,42 @@ import { Guid } from '@microsoft/sp-core-library';
 import { LogLevel } from '@pnp/logging';
 import Logger from '../../services/LogService/LogService';
 import { override } from '@microsoft/decorators';
+import { AvailableDatasources } from '../../services/SearchService/AvailableDatasources';
+import { TokenService } from '../../services/TokenService/TokenService';
 
 export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchResultsWebPartProps> implements IDynamicDataCallables {
 
+    /** 
+     * Service Definitions
+     */
     private _searchService: ISearchService;
     private _taxonomyService: ITaxonomyService;
     private _templateService: ITemplateService;
     private _extensibilityService: IExtensibilityService;
+    private _resultService: IResultService;
+ 
+    /**
+     * Edit time components
+     */
     private _propertyFieldCodeEditor = null;
     private _placeholder = null;
     private _propertyFieldCollectionData = null;
     private _customCollectionFieldType = null;
     private _searchManagedProperties = null;
     private _propertyPaneSearchManagedProperties = null;
-    private _textDialogComponent = null;
-    private _queryModifierInstance: IQueryModifierInstance = null;
+    private _textDialogComponent = null;    
     private _propertyFieldCodeEditorLanguages = null;
-    private _resultService: IResultService;
 
     // Dynamic data related fields
     private _dynamicDataService: IDynamicDataService;
-
     private _refinerSourceData: DynamicProperty<IRefinerSourceData>;
     private _searchVerticalSourceData: DynamicProperty<ISearchVerticalSourceData>;
-    private _verticalsInformation: ISearchVerticalInformation[];
 
-    private _codeRenderers: IRenderer[];
-    private _searchContainer: JSX.Element;
-    private _synonymTable: ISynonymTable;
 
     /**
      * Available property pane options from Web Components
      */
     private _templatePropertyPaneOptions: IPropertyPaneField<any>[];
-
     private _availableLanguages: IPropertyPaneDropdownOption[];
 
     /**
@@ -109,9 +106,17 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
      */
     private _availableManagedProperties: IComboBoxOption[];
 
+
+    /**
+     * UI functionality
+     */
     private _themeProvider: ThemeProvider;
     private _themeVariant: IReadonlyTheme;
     private _initComplete = false;
+    private _verticalsInformation: ISearchVerticalInformation[];
+    private _codeRenderers: IRenderer[];
+    private _searchContainer: JSX.Element;    
+    private _synonymTable: ISynonymTable;
 
     /**
      * Information about time zone bias (current user or web)
@@ -150,36 +155,35 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
     private _loadedLibraries:IExtensibilityLibrary[] = [];
     private _extensibilityEditor = null;
     private _availableHelpers = null;
-    
+    private _queryModifierInstance: IQueryModifierInstance = null;
+
     /**
      * Switch between verticals & reset filters
      */
     private prevVertical: string = "";
     private firstLoad = true;
 
-    /**
-     * Search Data Source
-     */
-    private _availableDataSources : string [] = [];
+    /** 
+     * The list of available search data sources 
+     **/
+    private _availableDatasources: IExtension<any>[] = AvailableDatasources.BuiltinDatasources;
 
 
     public constructor() {
         super();
-try {
-            this._templateContentToDisplay = '';
-            this._availableLanguages = [];
-            this._templatePropertyPaneOptions = [];
-            this._availableManagedProperties = [];
 
-            this.onPropertyPaneFieldChanged = this.onPropertyPaneFieldChanged.bind(this);
-            this._onUpdateAvailableProperties = this._onUpdateAvailableProperties.bind(this);
-} catch(ex) {
-    Logger.error(ex);
-}
+        this._templateContentToDisplay = '';
+        this._availableLanguages = [];
+        this._templatePropertyPaneOptions = [];
+        this._availableManagedProperties = [];
+
+        this.onPropertyPaneFieldChanged = this.onPropertyPaneFieldChanged.bind(this);
+        this._onUpdateAvailableProperties = this._onUpdateAvailableProperties.bind(this);
+
     }
 
     public async render(): Promise<void> {
-try {
+
         if (!this._initComplete) {
             // Don't render until all init is complete
             return;
@@ -199,10 +203,6 @@ try {
 
         this.renderCompleted();
 
-} catch(ex) {
-    Logger.error(ex);
-}       
-
     }
 
     @override
@@ -218,12 +218,11 @@ try {
 
     protected renderCompleted(): void {
         super.renderCompleted();
-try {
+
         let renderElement = null;
         let refinerConfiguration: IRefinerConfiguration[] = [];
         let selectedFilters: IRefinementFilter[] = [];
-        let queryTemplate: string = this.properties.queryTemplate;
-        let sourceId: string = this.properties.resultSourceId;
+        let config : ICommonSearchProps = this.properties;
         let getVerticalsCounts: boolean = false;
 
         // Get default selected refiners from the URL
@@ -232,34 +231,6 @@ try {
             this.firstLoad = false;
         }
         selectedFilters = this.defaultSelectedFilters;
-
-        let queryDataSourceValue = this.properties.queryKeywords.tryGetValue();
-
-        let queryKeywords = this.properties.defaultSearchQuery;
-
-        if (queryDataSourceValue && typeof (queryDataSourceValue) === 'string') {
-            queryKeywords = queryDataSourceValue;
-        }
-        else if (queryDataSourceValue && typeof (queryDataSourceValue) === 'object') {
-            //https://github.com/microsoft-search/pnp-modern-search/issues/325
-            //new issue with search body as object - 2020-06-23
-            const refChunks = this.properties.queryKeywords.reference.split(':');
-            if (refChunks.length >= 3) {
-                const environmentType = refChunks[1];
-                const paramType = refChunks[2];
-                if (environmentType == "UrlData" && paramType !== "fragment") {
-                    const paramChunks = paramType.split('.');
-                    const queryTextParam = paramChunks.length === 2 ? paramChunks[1] : 'q';
-                    if (queryDataSourceValue[paramChunks[0]][queryTextParam]) {
-                        queryKeywords = decodeURIComponent(queryDataSourceValue[paramChunks[0]][queryTextParam]);
-                    }
-                }
-                else if (queryDataSourceValue[paramType] && queryDataSourceValue[paramType] !== 'undefined') {
-                    queryKeywords = decodeURIComponent(queryDataSourceValue[paramType]);
-                }
-            }
-        }
-
 
         // Get data from connected sources
         if (this._refinerSourceData && !this._refinerSourceData.isDisposed) {
@@ -277,11 +248,15 @@ try {
         }
 
         if (this._searchVerticalSourceData && !this._searchVerticalSourceData.isDisposed) {
+            
             const searchVerticalSourceData: ISearchVerticalSourceData = this._searchVerticalSourceData.tryGetValue();
+            
             if (searchVerticalSourceData) {
+
                 if (searchVerticalSourceData.selectedVertical) {
-                    queryTemplate = searchVerticalSourceData.selectedVertical.queryTemplate;
-                    sourceId = searchVerticalSourceData.selectedVertical.resultSourceId;
+                    
+                    config  = searchVerticalSourceData.selectedVertical.configuration;
+
                     getVerticalsCounts = searchVerticalSourceData.showCounts;
 
                     if (searchVerticalSourceData.selectedVertical.tabName !== this.prevVertical && this.prevVertical !== "") {
@@ -290,41 +265,58 @@ try {
                         // Re-trigger for refinement web part to clear filter
                         this.context.dynamicDataSourceManager.notifyPropertyChanged(SearchComponentType.SearchResultsWebPart);
                     }
+
                     this.prevVertical = searchVerticalSourceData.selectedVertical.tabName;
+
                 }
+
             }
+
         }
 
         const currentLocaleId = LocalizationHelper.getLocaleId(this.context.pageContext.cultureInfo.currentCultureName);
         const queryModifier = this._queryModifierInstance;
         const tz : number = this._timeZoneBias && this._timeZoneBias.Id ? this._timeZoneBias.Id : null;
+        const queryKeywords = this.getQueryKeywords();
 
+        /*
         // Configure the provider before the query according to our needs
         this._searchService = update(this._searchService, {
             timeZoneId: { $set:  tz},
             resultsCount: { $set: this.properties.paging.itemsCountPerPage },
-            queryTemplate: { $set: queryTemplate },
-            resultSourceId: { $set: sourceId },
-            sortList: { $set: this._searchService.sortList || this._convertToSortList(this.properties.sortList) },
-            enableQueryRules: { $set: this.properties.enableQueryRules },
-            includeOneDriveResults: { $set: this.properties.includeOneDriveResults },
-            selectedProperties: { $set: this.properties.selectedProperties ? this.properties.selectedProperties.replace(/\s|,+$/g, '').split(',') : [] },
+            config: { $set: {
+                ... this._searchService.config,
+                queryKeywords: queryKeywords,
+                queryTemplate: config.queryTemplate,
+                params: config.params,
+                sortList: this._searchService.config.sortList || config.sortList,
+                selectedProperties: this.properties.selectedProperties ? config.selectedProperties : []
+            }},
             synonymTable: { $set: this._synonymTable },
             queryCulture: { $set: this.properties.searchQueryLanguage !== -1 ? this.properties.searchQueryLanguage : currentLocaleId },
-            refinementFilters: { $set: selectedFilters.length > 0 ? SearchHelper.buildRefinementQueryString(selectedFilters) : [this.properties.refinementFilters.replace(/\'/g, '"')] },
+            refinementFilters: { $set: selectedFilters }, 
             refiners: { $set: refinerConfiguration },
             queryModifier: { $set: queryModifier },
         });
+        */ 
 
-        const isValueConnected = !!this.properties.queryKeywords.tryGetSource();
+        this._searchService.timeZoneId = tz;
+        this._searchService.resultsCount = this.properties.paging.itemsCountPerPage;
+        this._searchService.config = config as ICommonSearchProps;
+        this._searchService.synonymTable = this._synonymTable;
+        this._searchService.queryCulture = this.properties.searchQueryLanguage !== -1 ? this.properties.searchQueryLanguage : currentLocaleId;
+        this._searchService.refinementFilters = selectedFilters;
+        this._searchService.refiners = refinerConfiguration;
+        this._searchService.queryModifier = queryModifier;
+
+        const isValueConnected = this.areKeywordsConnected();
+
         this._searchContainer = React.createElement(
             SearchResultsContainer,
             {
                 searchService: this._searchService,
                 taxonomyService: this._taxonomyService,
-                queryKeywords: queryKeywords,
-                sortList: this.properties.sortList,
-                sortableFields: this.properties.sortableFields,
+                config: this.properties as ICommonSearchProps,
                 showResultsCount: this.properties.showResultsCount,
                 showBlank: this.properties.showBlank,
                 displayMode: this.displayMode,
@@ -356,7 +348,7 @@ try {
 
                         const searchVerticalSourceData: ISearchVerticalSourceData = this._searchVerticalSourceData.tryGetValue();
                         const otherVerticals = searchVerticalSourceData.verticalsConfiguration.filter(v => { return v.key !== searchVerticalSourceData.selectedVertical.key; });
-                        searchService.getSearchVerticalCounts(queryKeywords, otherVerticals, searchService.enableQueryRules).then((verticalsInfos) => {
+                        searchService.getSearchVerticalCounts(queryKeywords, otherVerticals).then((verticalsInfos) => {
 
                             let currentCount = results.PaginationInformation ? results.PaginationInformation.TotalRows : undefined;
 
@@ -409,15 +401,14 @@ try {
         } 
         
         ReactDom.render(renderElement, this.domElement);
-
-} catch(ex) {
-    Logger.error(ex);
-}   
         
     }
 
     protected async onInit(): Promise<void> {
-try {
+
+        // Ensures v4 wires into v3 properties, this will be removed in v5
+        this.backwardsCompatability();
+
         // Disable PnP Telemetry
         const telemetry = PnPTelemetry.getInstance();
         if (telemetry.optOut) telemetry.optOut();
@@ -445,14 +436,8 @@ try {
                 /* webpackMode: 'lazy' */
               '../../services/TemplateService/MockTemplateService');
             
-            this._templateService = new mts.default(this.context.pageContext.cultureInfo.currentUICultureName, this.context, this._searchService, this._extensibilityService);
+            this._templateService = new mts.default(this.context.pageContext.cultureInfo.currentUICultureName, this.context, null, this._extensibilityService);
             
-            const mss = await import(
-                /* webpackChunkName: 'mock-search-service' */
-                /* webpackMode: 'lazy' */
-                '../../services/SearchService/MockSearchService');
-            this._searchService = new mss.default();
-
 
         } else {
             this._taxonomyService = new TaxonomyService(this.context.pageContext.site.absoluteUrl);
@@ -469,23 +454,18 @@ try {
                 this._timeZoneBias.UserDST = this.context.pageContext.legacyPageContext.userTimeZoneData.DaylightBias;
                 this._timeZoneBias.Id = this.context.pageContext.legacyPageContext.webTimeZoneData.Id;
             }
-
-            const ss = await import(
-                /* webpackChunkName: 'mock-search-service' */
-                /* webpackMode: 'lazy' */
-                '../../services/SearchService/SearchService');
-            this._searchService = new ss.default(this.context.pageContext, this.context.spHttpClient);
       
             const ts = await import(
                 /* webpackChunkName: 'template-service' */
                 /* webpackMode: 'lazy' */
               '../../services/TemplateService/TemplateService');
             
-            this._templateService = new ts.default(this.context.spHttpClient, this.context.pageContext.cultureInfo.currentUICultureName, this._searchService, this._extensibilityService, this._timeZoneBias, this.context);
+            this._templateService = new ts.default(this.context.spHttpClient, this.context.pageContext.cultureInfo.currentUICultureName, null, this._extensibilityService, this._timeZoneBias, this.context);
         }
-
-        this._searchService.initializeTemplateService(this._templateService);
-
+        
+        await this._createSearchService();
+        this._templateService.init();
+        
         this._resultService = new ResultService();
         this._codeRenderers = this._resultService.getRegisteredRenderers();
         this._dynamicDataService = new DynamicDataService(this.context.dynamicDataProvider);
@@ -510,33 +490,77 @@ try {
         // load extensibility components
         await this._loadExtensibility();
 
-} catch(ex) {
-    Logger.error(ex);
-}   
         return super.onInit();
+    }
+
+    private async _createSearchService() : Promise<void> {
+
+        if (Environment.type === EnvironmentType.Local) {
+
+            const mss = await import(
+                /* webpackChunkName: 'mock-search-service' */
+                /* webpackMode: 'lazy' */
+                '../../services/SearchService/MockSearchService');
+            this._searchService = new mss.default();
+        
+        } else {
+        
+            if(this.properties.name === AvailableDatasources.SharePointDatasourceName) {
+                
+                const ss = await import(
+                    /* webpackChunkName: 'sp-search-service' */
+                    /* webpackMode: 'lazy' */
+                    '../../services/SearchService/SearchService');
+                this._searchService = new ss.default();
+
+            } else if(this.properties.name === AvailableDatasources.GraphDatasourceName) {
+                
+                const gs = await import(
+                    /* webpackChunkName: 'graph-search-service' */
+                    /* webpackMode: 'lazy' */
+                    '../../services/SearchService/GraphSearchService');
+                
+                this._searchService = new gs.default();
+
+            } else {
+                // this datasource is an extension
+
+            }
+
+        }
+
+        const initConfig: ISearchServiceInitializer = {
+            webPartContext: this.context,
+            templateService: this._templateService,
+            tokenService: new TokenService(this.context.pageContext, this.context.spHttpClient),
+            config: this.properties as ICommonSearchProps
+        };
+
+        this._searchService.init(initConfig);
+
+        this._templateService.searchService = this._searchService;
+
     }
     
     /**
      * Subscribes to URL query string change events
      */
     private _handleQueryStringChange() {
-try {        
+  
         ((h) => {
             this._ops = history.pushState;
             h.pushState = (state, key, path) => {
                 this._ops.apply(history, [state, key, path]);
-                const qkw = this.properties.queryKeywords.tryGetSource();
+                const qkw = this.properties.dynamicKeywords.tryGetSource();
                 Logger.write("[MSWP.SearchResultsWebPart.handleQueryStringChange()]: Query string change render", LogLevel.Verbose);
                 if (qkw && qkw.id === SearchComponentType.PageEnvironment) this.render();
             };
         })(window.history);
-} catch(ex) {
-    Logger.error(ex);
-}           
+
     }
 
     private async _registerExtensions() : Promise<void> {
-try {
+
         // Registers web components
         this._templateService.registerWebComponents(this.availableWebComponentDefinitions);
 
@@ -561,14 +585,10 @@ try {
             this.properties.selectedQueryModifierDisplayName = null;
         }
 
-} catch(ex) {
-    Logger.error(ex);
-}   
-
     }
 
     private async _loadExtensibility() : Promise<void> {
-try {        
+
         Logger.write("[MSWP.SearchResultsWebPart._loadExtensibility()]");
         
         // Load extensibility library if present
@@ -602,17 +622,11 @@ try {
             
         }
 
-} catch(ex) {
-    Logger.error(ex);
-}   
-
         await this._registerExtensions();
 
     }
 
     private async _initQueryModifierInstance(queryModifierDefinition: IExtension<any>): Promise<BaseQueryModifier> {
-
-try {
 
         if (!queryModifierDefinition) {
             return null;
@@ -638,14 +652,10 @@ try {
             return null;
         }
 
-} catch(ex) {
-    Logger.error(ex);
-}   
-
     }
 
     private _convertToSortConfig(sortList: string): ISortFieldConfiguration[] {
-try {        
+
         let pairs = sortList.split(',');
         return pairs.map(sort => {
             let direction;
@@ -662,16 +672,12 @@ try {
             } as ISortFieldConfiguration;
         });
 
-} catch(ex) {
-    Logger.error(ex);
-}   
-
     }
 
     private _convertToSynonymTable(synonymList: ISynonymFieldConfiguration[]): ISynonymTable {
       
         let synonymsTable: ISynonymTable = {};
-try { 
+
         if (synonymList) {
             synonymList.forEach(item => {
                 const currentTerm = item.Term.toLowerCase();
@@ -692,9 +698,6 @@ try {
             });
         }
 
-} catch(ex) {
-    Logger.error(ex);
-}     
         return synonymsTable;
       
     }
@@ -704,7 +707,7 @@ try {
     }
 
     private _convertToSortList(sortList: ISortFieldConfiguration[]): Sort[] {
-try {        
+
         return sortList.map(e => {
 
             let direction;
@@ -729,20 +732,14 @@ try {
             } as Sort;
         });
 
-} catch(ex) {
-    Logger.error(ex);
-}   
-
     }
 
     protected onDispose(): void {
-try {        
+
         Logger.write("[MSWP.SearchResultsWebPart.onDispose()]: Unmounting SearchResultsWebPart.");
         window.history.pushState = this._ops;
         ReactDom.unmountComponentAtNode(this.domElement);
-} catch(ex) {
-    Logger.error(ex);
-}           
+
     }
     
     @override
@@ -754,7 +751,7 @@ try {
      * Initializes the Web Part required properties if there are not present in the manifest (i.e. during an update scenario)
      */
     private initializeRequiredProperties() {
-try {
+
         if(!this.properties.extensibilityLibraries) this.properties.extensibilityLibraries = [];
         if(!this.properties.queryTemplate) this.properties.queryTemplate = "{searchTerms}";
 
@@ -812,21 +809,20 @@ try {
             "UniqueID"
         ];
 
-        if (this.properties.selectedProperties) {
-
-            let properties = this.properties.selectedProperties.split(',');
+        if (Array.isArray(this.properties.selectedProperties)) {
 
             defaultManagedProperties.map(property => {
 
-                const idx = findIndex(properties, item => property.toLowerCase() === item.toLowerCase());
-                if (idx === -1) {
-                    properties.push(property);
-                }
+                const idx = findIndex(this.properties.selectedProperties, item => property.toLowerCase() === item.toLowerCase());
+                
+                if (idx === -1) this.properties.selectedProperties.push(property);
+
             });
 
-            this.properties.selectedProperties = properties.join(',');
         } else {
-            this.properties.selectedProperties = defaultManagedProperties.join(',');
+
+            this.properties.selectedProperties = defaultManagedProperties;
+
         }
 
         this.properties.resultTypes = Array.isArray(this.properties.resultTypes) ? this.properties.resultTypes : [];
@@ -848,18 +844,12 @@ try {
             };
         }
 
-} catch(ex) {
-    Logger.error(ex);
-}   
-
     }
 
     protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {
-try {
+
         const templateParametersGroup = this._getTemplateFieldsGroup();
 
-        let searchQueryGroups = [];
-        searchQueryGroups.push(this._getSearchQueryFields());
 
         let stylingPageGroups: IPropertyPaneGroup[] = [
             {
@@ -875,13 +865,7 @@ try {
 
         return {
             pages: [
-                {
-                    header: {
-                        description: strings.SearchQuerySettingsGroupName
-                    },
-                    groups: searchQueryGroups,
-                    displayGroupsAsAccordion: false
-                },
+                this.getSearchSettingsPage(),
                 {
                     groups: [
                         {
@@ -907,23 +891,46 @@ try {
             ]
         };
 
-} catch(ex) {
-    Logger.error(ex);
-}   
+    }
+
+    private getSearchSettingsPage() : IPropertyPanePage {
+        return {
+            header: {
+                description: strings.SearchQuerySettingsGroupName
+            },
+            groups: this.getSearchSettingsGroups(),
+            displayGroupsAsAccordion: true
+        };
+    }
+
+    private getSearchSettingsGroups() : (IPropertyPaneGroup | IPropertyPaneConditionalGroup)[] {
+
+        let searchQueryGroups = [];
+        
+        searchQueryGroups.push(this._getSearchQueryFields());
+
+        searchQueryGroups.push(this._getDatasourceSelectionFields());
+
+        searchQueryGroups.push(this._getStandardDatasourceFields());
+
+        const searchServiceGroup = this._searchService.getPropertyPane(this.properties);
+        searchQueryGroups.push(searchServiceGroup);
+
+        return searchQueryGroups;
 
     }
     
     @override
     protected get propertiesMetadata(): IWebPartPropertiesMetadata {
         return {
-            'queryKeywords': {
+            'dynamicKeywords': {
                 dynamicPropertyType: 'string'
             }
         };
     }
 
     protected async loadPropertyPaneResources(): Promise<void> {
-try {
+
         const lib : IEditorLibrary = await this._extensibilityService.getEditorLibrary();
         
         this._extensibilityEditor = lib.getExtensibilityEditor();
@@ -957,13 +964,11 @@ try {
                 };
             });
         }
-} catch(ex) {
-    Logger.error(ex);
-}           
+
     }
 
     protected async onPropertyPaneFieldChanged(propertyPath: string) {
-try {
+
         if (!this.properties.useDefaultSearchQuery) {
             this.properties.defaultSearchQuery = '';
         }
@@ -971,6 +976,20 @@ try {
         // Bind connected data sources
         if (this.properties.refinerDataSourceReference || this.properties.searchVerticalDataSourceReference) {
             this.ensureDataSourceConnection();
+        }
+
+        if(propertyPath.localeCompare('name') === 0) {
+            await this._createSearchService();
+            await this._initializeQueryModifiers();
+            this.context.propertyPane.refresh();
+        }
+
+        if(propertyPath.localeCompare('dynamicKeywords') === 0) {
+            const kw = this.getQueryKeywords();
+            if(kw !== this.properties.queryKeywords) {
+                this._searchService.config.queryKeywords = this.properties.queryKeywords = kw;
+                this.context.dynamicDataSourceManager.notifyPropertyChanged(SearchComponentType.SearchResultsWebPart);
+            }
         }
 
         if (propertyPath.localeCompare('useRefiners') === 0) {
@@ -995,24 +1014,13 @@ try {
             this.context.dynamicDataSourceManager.notifyPropertyChanged(SearchComponentType.SearchResultsWebPart);
         }
 
-        if (this.properties.enableLocalization) {
-
-            let udpatedProperties: string[] = this.properties.selectedProperties.split(',');
-            if (udpatedProperties.indexOf('UniqueID') === -1) {
-                udpatedProperties.push('UniqueID');
-            }
-
-            // Add automatically the UniqueID managed property for subsequent queries
-            this.properties.selectedProperties = udpatedProperties.join(',');
+        if (this.properties.enableLocalization && this.properties.selectedProperties.indexOf('UniqueID') === -1) {
+            this.properties.selectedProperties.push('UniqueID');
         }
 
-        // clean out duplicate ones
-        let allProps = this.properties.selectedProperties.split(',');
-        allProps = allProps.filter((item, index) => {
-            return allProps.indexOf(item) === index;
+        this.properties.selectedProperties = this.properties.selectedProperties.filter((item, index) => {
+            return this.properties.selectedProperties.indexOf(item) === index;
         });
-        this.properties.selectedProperties = allProps.join(',');
-
 
         if (propertyPath.localeCompare('selectedLayout') === 0) {
             // Refresh setting the right template for the property pane
@@ -1043,30 +1051,35 @@ try {
 
         if (propertyPath.localeCompare('queryModifiers') === 0) {
 
-            // Load only the selected query modifier (can only have one at once, blocked by the UI)
-            const configuredQueryModifiers = this.properties.queryModifiers.filter(m => m.queryModifierEnabled);
-
-            if (configuredQueryModifiers.length === 1) {
-
-                // Get the corresponding query modifier definition
-                const queryModifierDefinition = this.availableQueryModifierDefinitions.filter(definition => definition.displayName === configuredQueryModifiers[0].queryModifierDisplayName);
-                if (queryModifierDefinition.length === 1) {
-
-                    this.properties.selectedQueryModifierDisplayName = queryModifierDefinition[0].displayName;
-                    this._queryModifierInstance = await this._initQueryModifierInstance(queryModifierDefinition[0]);
-                }
-
-            } else {
-                this.properties.selectedQueryModifierDisplayName = null;
-                this._queryModifierInstance = null;
-            }
-
+            await this._initializeQueryModifiers();
             this.context.dynamicDataSourceManager.notifyPropertyChanged(SearchComponentType.SearchResultsWebPart);
+
         }
 
-} catch(ex) {
-    Logger.error(ex);
-}   
+    }
+
+    private async _initializeQueryModifiers() : Promise<void> {
+
+        // Load only the selected query modifier (can only have one at once, blocked by the UI)
+        const configuredQueryModifiers = this.properties.queryModifiers.filter(m => m.queryModifierEnabled);
+
+        if (configuredQueryModifiers.length === 1) {
+
+            // Get the corresponding query modifier definition
+            const queryModifierDefinition = this.availableQueryModifierDefinitions.filter(definition => definition.displayName === configuredQueryModifiers[0].queryModifierDisplayName);
+            if (queryModifierDefinition.length === 1) {
+
+                this.properties.selectedQueryModifierDisplayName = queryModifierDefinition[0].displayName;
+                this._queryModifierInstance = await this._initQueryModifierInstance(queryModifierDefinition[0]);
+
+            }
+
+        } else {
+
+            this.properties.selectedQueryModifierDisplayName = null;
+            this._queryModifierInstance = null;
+
+        }
 
     }
 
@@ -1106,46 +1119,11 @@ try {
     }
 
     /**
-     * Ensures the result source id value is a valid GUID or a string with format: Level|Result source name
-     * @param value the result source id
-     */
-    private _validateSourceId(value: string): string {
-        if (value.length > 0) {
-            if (!(/^(\{){0,1}[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}(\}){0,1}$/).test(value)) {
-                return this._validateSourceName(value);
-            }
-        }
-
-        return '';
-    }
-
-    private _validateSourceName(value: string): string {
-        const validLevels: string[] = ["SPSiteSubscription", "SPSite", "SPWeb"];
-        if (value.length > 0) {
-            const parts: string[] = value.split("|");
-
-            if (parts.length !== 2) return strings.InvalidResultSourceIdMessage;
-
-            const level: string = parts[0];
-            const resultSourceName: string = parts[1];
-            if (validLevels.find(i => i.toLowerCase() === level.toLowerCase())) {
-                if (!resultSourceName) {
-                    return strings.InvalidResultSourceIdMessage;
-                }
-            } else {
-                return strings.InvalidResultSourceIdMessage;
-            }
-        }
-
-        return '';
-    }
-
-    /**
      * Init the template according to the property pane current configuration
      * @returns the template content as a string
      */
     private async _initTemplate(): Promise<void> {
-try {
+
         if (this.properties.selectedLayout === ResultsLayoutOption.Custom) {
 
             // Reset options
@@ -1173,10 +1151,6 @@ try {
 
         await this._templateService.optimizeLoadingForTemplate(this._templateContentToDisplay);
 
-} catch(ex) {
-    Logger.error(ex);
-}   
-
     }
 
     private async tryLoadTemplatePropertyPaneResources(test:any) : Promise<void> {
@@ -1194,7 +1168,7 @@ try {
         return [
             new this._extensibilityEditor('extensibilityGuid',{
                 label: strings.Extensibility.ButtonLabel,
-                allowedExtensions: [ ExtensionTypes.QueryModifer, ExtensionTypes.WebComponent, ExtensionTypes.HandlebarsHelper ],
+                allowedExtensions: [ ExtensionTypes.QueryModifer, ExtensionTypes.WebComponent, ExtensionTypes.HandlebarsHelper, ExtensionTypes.SearchDatasource ],
                 libraries: this._loadedLibraries,
                 extensibilityService: this._extensibilityService,
                 onLibraryAdded: async (id:Guid) => {
@@ -1234,142 +1208,6 @@ try {
 
         // Sets up search settings fields
         const searchSettingsFields: IPropertyPaneField<any>[] = [
-            PropertyPaneDropdown('dataSource', {
-                label: "Search Data Source",
-                options: [{
-                    key: -1,
-                    text: strings.QueryCultureUseUiLanguageLabel
-                } as IDropdownOption].concat(sortBy(this._availableLanguages, ['text'])),
-                selectedKey: this.properties.searchQueryLanguage ? this.properties.searchQueryLanguage : 0
-            }), 
-            PropertyPaneTextField('queryTemplate', {
-                label: strings.QueryTemplateFieldLabel,
-                value: this.properties.queryTemplate,
-                disabled: this.properties.searchVerticalDataSourceReference ? true : false,
-                multiline: true,
-                resizable: true,
-                placeholder: strings.SearchQueryPlaceHolderText,
-                deferredValidationTime: 1000
-            }),
-            PropertyPaneTextField('resultSourceId', {
-                label: strings.ResultSourceIdLabel,
-                description: strings.ResultSourceIdDescription,
-                multiline: false,
-                onGetErrorMessage: this._validateSourceId.bind(this),
-                deferredValidationTime: 300
-            }),
-            this._propertyFieldCollectionData('sortList', {
-                manageBtnLabel: strings.Sort.EditSortLabel,
-                key: 'sortList',
-                enableSorting: true,
-                panelHeader: strings.Sort.EditSortLabel,
-                panelDescription: strings.Sort.SortListDescription,
-                label: strings.Sort.SortPropertyPaneFieldLabel,
-                value: this.properties.sortList,
-                fields: [
-                    {
-                        id: 'sortField',
-                        title: strings.Sort.EditSortLabelFieldName,
-                        type: this._customCollectionFieldType.custom,
-                        required: true,
-                        onCustomRender: (field, value, onUpdate, item, itemId, onCustomFieldValidation) => {
-
-                            // Need to specify a React key to avoid item duplication when adding a new row
-                            return React.createElement("div", { key: `${field.id}-${itemId}` },
-                                React.createElement(this._searchManagedProperties, {
-                                    defaultSelectedKey: item[field.id] ? item[field.id] : '',
-                                    onUpdate: (newValue: any, isSortable: boolean) => {
-
-                                        if (!isSortable) {
-                                            onCustomFieldValidation(field.id, strings.Sort.SortInvalidSortableFieldMessage);
-                                        } else {
-                                            onUpdate(field.id, newValue);
-                                            onCustomFieldValidation(field.id, '');
-                                        }
-                                    },
-                                    searchService: this._searchService,
-                                    validateSortable: true,
-                                    availableProperties: this._availableManagedProperties,
-                                    onUpdateAvailableProperties: this._onUpdateAvailableProperties
-                                }));
-                        }
-                    },
-                    {
-                        id: 'sortDirection',
-                        title: strings.Sort.EditSortDirection,
-                        type: this._customCollectionFieldType.dropdown,
-                        required: true,
-                        options: [
-                            {
-                                key: ISortFieldDirection.Ascending,
-                                text: strings.Sort.SortDirectionAscendingLabel
-                            },
-                            {
-                                key: ISortFieldDirection.Descending,
-                                text: strings.Sort.SortDirectionDescendingLabel
-                            }
-                        ]
-                    }
-                ]
-            }),
-            this._propertyFieldCollectionData('sortableFields', {
-                manageBtnLabel: strings.Sort.EditSortableFieldsLabel,
-                key: 'sortableFields',
-                enableSorting: true,
-                panelHeader: strings.Sort.EditSortableFieldsLabel,
-                panelDescription: strings.Sort.SortableFieldsDescription,
-                label: strings.Sort.SortableFieldsPropertyPaneField,
-                value: this.properties.sortableFields,
-                fields: [
-                    {
-                        id: 'sortField',
-                        title: strings.Sort.SortableFieldManagedPropertyField,
-                        type: this._customCollectionFieldType.custom,
-                        required: true,
-                        onCustomRender: (field, value, onUpdate, item, itemId, onCustomFieldValidation) => {
-                            // Need to specify a React key to avoid item duplication when adding a new row
-                            return React.createElement("div", { key: `${field.id}-${itemId}` },
-                                React.createElement(this._searchManagedProperties, {
-                                    defaultSelectedKey: item[field.id] ? item[field.id] : '',
-                                    onUpdate: (newValue: any, isSortable: boolean) => {
-
-                                        if (!isSortable) {
-                                            onCustomFieldValidation(field.id, strings.Sort.SortInvalidSortableFieldMessage);
-                                        } else {
-                                            onUpdate(field.id, newValue);
-                                            onCustomFieldValidation(field.id, '');
-                                        }
-                                    },
-                                    searchService: this._searchService,
-                                    validateSortable: true,
-                                    availableProperties: this._availableManagedProperties,
-                                    onUpdateAvailableProperties: this._onUpdateAvailableProperties
-                                }));
-                        }
-                    },
-                    {
-                        id: 'displayValue',
-                        title: strings.Sort.SortableFieldDisplayValueField,
-                        type: this._customCollectionFieldType.string
-                    },
-                    {
-                        id: 'sortDirection',
-                        title: strings.Sort.SortPanelSortDirectionLabel,
-                        type: this._customCollectionFieldType.dropdown,
-                        required: true,
-                        options: [
-                            {
-                                key: ISortFieldDirection.Ascending,
-                                text: strings.Sort.SortDirectionAscendingLabel
-                            },
-                            {
-                                key: ISortFieldDirection.Descending,
-                                text: strings.Sort.SortDirectionDescendingLabel
-                            }
-                        ]
-                    }
-                ]
-            }),
             PropertyPaneToggle('useRefiners', {
                 label: strings.UseRefinersWebPartLabel,
                 checked: useRefiners
@@ -1378,48 +1216,19 @@ try {
                 label: strings.UseSearchVerticalsLabel,
                 checked: useSearchVerticals
             }),
-            PropertyPaneToggle('enableQueryRules', {
-                label: strings.EnableQueryRulesLabel,
-                checked: this.properties.enableQueryRules,
-            }),
-            PropertyPaneToggle('includeOneDriveResults', {
-                label: strings.IncludeOneDriveResultsLabel,
-                checked: this.properties.includeOneDriveResults,
-            }),
-            new this._propertyPaneSearchManagedProperties('selectedProperties', {
-                label: strings.SelectedPropertiesFieldLabel,
-                description: strings.SelectedPropertiesFieldDescription,
-                allowMultiSelect: true,
-                availableProperties: this._availableManagedProperties,
-                defaultSelectedKeys: this.properties.selectedProperties.split(","),
-                onPropertyChange: (propertyPath: string, newValue: any) => {
-                    this.properties[propertyPath] = newValue.join(',');
-                    this.onPropertyPaneFieldChanged(propertyPath);
-                    Logger.write("[MSWP.SearchResultsWebPart.onPropertyChange]: Selected properties change render",LogLevel.Verbose);
-                    // Refresh the WP with new selected properties
-                    this.render();
-                },
-                onUpdateAvailableProperties: this._onUpdateAvailableProperties,
-                searchService: this._searchService,
-            }),
+/*          Removed in V4
+            - Can we do the same thing with KQL / Query Template?
+            - The datatype of these has been changed for compatability with v4 data sources
             PropertyPaneTextField('refinementFilters', {
                 label: strings.RefinementFilters,
                 multiline: true,
                 deferredValidationTime: 300
-            }),
+            }),*/
             PropertyPaneToggle('enableLocalization', {
                 checked: this.properties.enableLocalization,
                 label: strings.EnableLocalizationLabel,
                 onText: strings.EnableLocalizationOnLabel,
                 offText: strings.EnableLocalizationOffLabel
-            }),
-            PropertyPaneDropdown('searchQueryLanguage', {
-                label: strings.QueryCultureLabel,
-                options: [{
-                    key: -1,
-                    text: strings.QueryCultureUseUiLanguageLabel
-                } as IDropdownOption].concat(sortBy(this._availableLanguages, ['text'])),
-                selectedKey: this.properties.searchQueryLanguage ? this.properties.searchQueryLanguage : 0
             }),
             this._propertyFieldCollectionData('synonymList', {
                 manageBtnLabel: strings.Synonyms.EditSynonymLabel,
@@ -1479,7 +1288,7 @@ try {
      * Make sure the dynamic property is correctly connected to the source if a search refiner component has been selected in options
      */
     private ensureDataSourceConnection() {
-try{
+
         // Refiner Web Part data source
         if (this.properties.refinerDataSourceReference) {
 
@@ -1515,11 +1324,191 @@ try{
                 this._searchVerticalSourceData.unregister(this.render);
             }
         }
-} catch(ex) {
-    Logger.error(ex);
-}           
+
     }
 
+    private _getDatasourceSelectionFields() : IPropertyPaneGroup {
+
+        let datasources : IPropertyPaneChoiceGroupOption[] = [];
+
+        if (this._availableDatasources && this._availableDatasources.length > 0) {
+            
+            datasources = this._availableDatasources.map((ds) => {
+                return {
+                    key: ds.name,
+                    text: ds.displayName,
+                    iconProps: {
+                        officeFabricIconFontName: ds.icon ? ds.icon : "SearchData"
+                    },
+                } as IPropertyPaneChoiceGroupOption;
+            });
+
+        }
+
+        return {
+            groupName: "Datasource",
+            groupFields: [
+                PropertyPaneChoiceGroup('name', {
+                    label: "Select Datasource",
+                    options: datasources
+                }),
+            ]
+        };
+    }
+
+    private _getStandardDatasourceFields() : IPropertyPaneGroup {
+        return {
+            groupName: "Common",
+            isCollapsed: false,
+            groupFields: [
+                PropertyPaneDropdown('searchQueryLanguage', {
+                    label: strings.QueryCultureLabel,
+                    options: [{
+                        key: -1,
+                        text: strings.QueryCultureUseUiLanguageLabel
+                    } as IDropdownOption].concat(sortBy(this._availableLanguages, ['text'])),
+                    selectedKey: this.properties.searchQueryLanguage ? this.properties.searchQueryLanguage : 0
+                }),
+                PropertyPaneTextField('queryTemplate', {
+                    label: strings.QueryTemplateFieldLabel,
+                    value: this.properties.queryTemplate,
+                    disabled: this.properties.searchVerticalDataSourceReference ? true : false,
+                    multiline: true,
+                    resizable: true,
+                    placeholder: strings.SearchQueryPlaceHolderText,
+                    deferredValidationTime: 1000
+                }),
+                new this._propertyPaneSearchManagedProperties('selectedProperties', {
+                    label: strings.SelectedPropertiesFieldLabel,
+                    description: strings.SelectedPropertiesFieldDescription,
+                    allowMultiSelect: true,
+                    availableProperties: this._availableManagedProperties,
+                    defaultSelectedKeys: this.properties.selectedProperties,
+                    onPropertyChange: (propertyPath: string, newValue: any) => {
+                        this.properties[propertyPath] = newValue;
+                        this.onPropertyPaneFieldChanged(propertyPath);
+                        Logger.write("[MSWP.SearchResultsWebPart.onPropertyChange]: Selected properties change render",LogLevel.Verbose);
+                        // Refresh the WP with new selected properties
+                        this.render();
+                    },
+                    onUpdateAvailableProperties: this._onUpdateAvailableProperties,
+                    searchService: this._searchService,
+                }),
+                this._propertyFieldCollectionData('sortList', {
+                    manageBtnLabel: strings.Sort.EditSortLabel,
+                    key: 'sortList',
+                    enableSorting: true,
+                    panelHeader: strings.Sort.EditSortLabel,
+                    panelDescription: strings.Sort.SortListDescription,
+                    label: strings.Sort.SortPropertyPaneFieldLabel,
+                    value: this.properties.sortList,
+                    fields: [
+                        {
+                            id: 'sortField',
+                            title: strings.Sort.EditSortLabelFieldName,
+                            type: this._customCollectionFieldType.custom,
+                            required: true,
+                            onCustomRender: (field, value, onUpdate, item, itemId, onCustomFieldValidation) => {
+    
+                                // Need to specify a React key to avoid item duplication when adding a new row
+                                return React.createElement("div", { key: `${field.id}-${itemId}` },
+                                    React.createElement(this._searchManagedProperties, {
+                                        defaultSelectedKey: item[field.id] ? item[field.id] : '',
+                                        onUpdate: (newValue: any, isSortable: boolean) => {
+    
+                                            if (!isSortable) {
+                                                onCustomFieldValidation(field.id, strings.Sort.SortInvalidSortableFieldMessage);
+                                            } else {
+                                                onUpdate(field.id, newValue);
+                                                onCustomFieldValidation(field.id, '');
+                                            }
+                                        },
+                                        searchService: this._searchService,
+                                        validateSortable: true,
+                                        availableProperties: this._availableManagedProperties,
+                                        onUpdateAvailableProperties: this._onUpdateAvailableProperties
+                                    }));
+                            }
+                        },
+                        {
+                            id: 'sortDirection',
+                            title: strings.Sort.EditSortDirection,
+                            type: this._customCollectionFieldType.dropdown,
+                            required: true,
+                            options: [
+                                {
+                                    key: ISortFieldDirection.Ascending,
+                                    text: strings.Sort.SortDirectionAscendingLabel
+                                },
+                                {
+                                    key: ISortFieldDirection.Descending,
+                                    text: strings.Sort.SortDirectionDescendingLabel
+                                }
+                            ]
+                        }
+                    ]
+                }),
+                this._propertyFieldCollectionData('sortableFields', {
+                    manageBtnLabel: strings.Sort.EditSortableFieldsLabel,
+                    key: 'sortableFields',
+                    enableSorting: true,
+                    panelHeader: strings.Sort.EditSortableFieldsLabel,
+                    panelDescription: strings.Sort.SortableFieldsDescription,
+                    label: strings.Sort.SortableFieldsPropertyPaneField,
+                    value: this.properties.sortableFields,
+                    fields: [
+                        {
+                            id: 'sortField',
+                            title: strings.Sort.SortableFieldManagedPropertyField,
+                            type: this._customCollectionFieldType.custom,
+                            required: true,
+                            onCustomRender: (field, value, onUpdate, item, itemId, onCustomFieldValidation) => {
+                                // Need to specify a React key to avoid item duplication when adding a new row
+                                return React.createElement("div", { key: `${field.id}-${itemId}` },
+                                    React.createElement(this._searchManagedProperties, {
+                                        defaultSelectedKey: item[field.id] ? item[field.id] : '',
+                                        onUpdate: (newValue: any, isSortable: boolean) => {
+    
+                                            if (!isSortable) {
+                                                onCustomFieldValidation(field.id, strings.Sort.SortInvalidSortableFieldMessage);
+                                            } else {
+                                                onUpdate(field.id, newValue);
+                                                onCustomFieldValidation(field.id, '');
+                                            }
+                                        },
+                                        searchService: this._searchService,
+                                        validateSortable: true,
+                                        availableProperties: this._availableManagedProperties,
+                                        onUpdateAvailableProperties: this._onUpdateAvailableProperties
+                                    }));
+                            }
+                        },
+                        {
+                            id: 'displayValue',
+                            title: strings.Sort.SortableFieldDisplayValueField,
+                            type: this._customCollectionFieldType.string
+                        },
+                        {
+                            id: 'sortDirection',
+                            title: strings.Sort.SortPanelSortDirectionLabel,
+                            type: this._customCollectionFieldType.dropdown,
+                            required: true,
+                            options: [
+                                {
+                                    key: ISortFieldDirection.Ascending,
+                                    text: strings.Sort.SortDirectionAscendingLabel
+                                },
+                                {
+                                    key: ISortFieldDirection.Descending,
+                                    text: strings.Sort.SortDirectionDescendingLabel
+                                }
+                            ]
+                        }
+                    ]
+                })
+            ]
+        };
+    }
     /**
      * Determines the group fields for the search query options inside the property pane
      */
@@ -1536,7 +1525,7 @@ try{
             ];
         }
 
-        if (!!this.properties.queryKeywords.tryGetSource()) {
+        if (!!this.properties.dynamicKeywords.tryGetSource()) {
             defaultSearchQueryFields.push(
                 PropertyPaneCheckbox('useDefaultSearchQuery', {
                     text: strings.UseDefaultSearchQueryKeywordsFieldLabel
@@ -1560,8 +1549,9 @@ try{
 
         return {
             primaryGroup: {
+                groupName: "Query Source",
                 groupFields: [
-                    PropertyPaneTextField('queryKeywords', {
+                    PropertyPaneTextField('dynamicKeywords', {
                         label: strings.SearchQueryKeywordsFieldLabel,
                         description: strings.SearchQueryKeywordsFieldDescription,
                         multiline: true,
@@ -1574,11 +1564,12 @@ try{
                 ]
             },
             secondaryGroup: {
+                groupName: "Select Query Source",
                 groupFields: [
                     PropertyPaneDynamicFieldSet({
                         label: strings.SearchQueryKeywordsFieldLabel,
                         fields: [
-                            PropertyPaneDynamicField('queryKeywords', {
+                            PropertyPaneDynamicField('dynamicKeywords', {
                                 label: strings.SearchQueryKeywordsFieldLabel
                             })
                         ],
@@ -1591,13 +1582,14 @@ try{
             },
             // Show the secondary group only if the web part has been
             // connected to a dynamic data source
-            showSecondaryGroup: !!this.properties.queryKeywords.tryGetSource(),
+            showSecondaryGroup: this.areKeywordsConnected(),
             onShowPrimaryGroup: () => {
 
                 // Reset dynamic data fields related values to be consistent
                 this.properties.useDefaultSearchQuery = false;
                 this.properties.defaultSearchQuery = '';
-                this.properties.queryKeywords.setValue('');
+                this.properties.dynamicKeywords.setValue('');
+                this.properties.queryKeywords = "";
                 Logger.write("[MSWP.SearchResultsWebPart._getSearchQueryFields()]: Show primary group render", LogLevel.Verbose);
                 this.render();
             }
@@ -1923,7 +1915,7 @@ try{
                 });
             }
             if (currentCodeRenderer && currentCodeRenderer.customFields && currentCodeRenderer.customFields.length > 0) {
-                const searchPropertyOptions = this.properties.selectedProperties.split(',').map(prop => {
+                const searchPropertyOptions = this.properties.selectedProperties.map(prop => {
                     return ({
                         key: prop,
                         text: prop
@@ -2008,11 +2000,11 @@ try{
     }
 
     public getPropertyValue(propertyId: string): ISearchResultSourceData {
-try {
+
         const refinementResults = (this._resultService && this._resultService.results) ? this._resultService.results.RefinementResults : [];
 
         const searchResultSourceData: ISearchResultSourceData = {
-            queryKeywords: this.properties.queryKeywords.tryGetValue(),
+            queryKeywords: this.getQueryKeywords(),
             refinementResults: refinementResults,
             paginationInformation: (this._resultService && this._resultService.results) ? this._resultService.results.PaginationInformation : {
                 CurrentPage: 1,
@@ -2030,12 +2022,7 @@ try {
                 return searchResultSourceData;
         }
 
-} catch(ex) {
-    Logger.error(ex);
-}   
-        return null;
-
-        //throw new Error('Bad property id');
+        throw new Error('Bad property id');
     }
 
     /**
@@ -2048,8 +2035,6 @@ try {
     private _mapDefaultSelectedFiltersToRefinementResults(refinementResults: IRefinementResult[]): IRefinementFilter[] {
 
         let updatedDefaultSelectedFilters: IRefinementFilter[] = [];
-        
-try {
 
         if (refinementResults.length > 0 && this.defaultSelectedFilters.length > 0) {
 
@@ -2092,9 +2077,6 @@ try {
             });
         }
 
-} catch(ex) {
-    Logger.error(ex);
-}   
         return updatedDefaultSelectedFilters;
     }
 
@@ -2103,7 +2085,7 @@ try {
      * @param properties the fetched properties
      */
     private _onUpdateAvailableProperties(properties: IComboBoxOption[]) {
-try {
+
         // Save the value in the root Web Part class to avoid fetching it again if the property list is requested again by any other property pane control
         this._availableManagedProperties = cloneDeep(properties);
 
@@ -2113,16 +2095,13 @@ try {
         Logger.write("[MSWP.SearchResultsWebPart._onUpdateAvailableProperties()]: On update available properties render", LogLevel.Verbose);
         this.render();
 
-} catch(ex) {
-    Logger.error(ex);
-}           
     }
 
     /**
      * Initializes theme variant properties
      */
     private initThemeVariant(): void {
-try {
+
         // Consume the new ThemeProvider service
         this._themeProvider = this.context.serviceScope.consume(ThemeProvider.serviceKey);
 
@@ -2132,9 +2111,6 @@ try {
         // Register a handler to be notified if the theme variant changes
         this._themeProvider.themeChangedEvent.add(this, this._handleThemeChangedEvent.bind(this));
 
-} catch(ex) {
-    Logger.error(ex);
-}           
     }
 
     /**
@@ -2142,16 +2118,12 @@ try {
      * @param args The new theme
      */
     private _handleThemeChangedEvent(args: ThemeChangedEventArgs): void {
-try {
+
         if (!isEqual(this._themeVariant, args.theme)) {
             this._themeVariant = args.theme;
             Logger.write("[MSWP.SearchResultsWebPart._handleThemeChangedEvent()]: Theme changed render");
             this.render();
         }
-
-} catch(ex) {
-    Logger.error(ex);
-}   
 
     }
 
@@ -2159,7 +2131,7 @@ try {
      * Binds event fired from pagination web components
      */
     private bindPagingEvents() {
-try {
+
         this.domElement.addEventListener('pageNumberUpdated', ((ev: CustomEvent) => {
 
             // We ensure the event if not propagated outside the component (i.e. other Web Part instances)
@@ -2172,10 +2144,6 @@ try {
             this.render();
 
         }).bind(this));
-
-} catch(ex) {
-    Logger.error(ex);
-}   
         
     }
 
@@ -2185,7 +2153,6 @@ try {
     private getPagingGroupFields(): IPropertyPaneField<any>[] {
 
         let groupFields: IPropertyPaneField<any>[] = [];
-
 
         groupFields.push(
             PropertyPaneToggle('paging.showPaging', {
@@ -2207,7 +2174,6 @@ try {
                 value: this.properties.paging.pagingRange,
                 disabled: !this.properties.paging.showPaging
             }),
-            PropertyPaneHorizontalRule(),
             PropertyPaneToggle('paging.hideNavigation', {
                 label: strings.Paging.HideNavigationFieldName,
                 disabled: !this.properties.paging.showPaging
@@ -2223,4 +2189,64 @@ try {
         );
         return groupFields;
     }
+
+    private areKeywordsConnected() : boolean {
+        return !!this.properties.dynamicKeywords.tryGetSource();
+    }
+
+    private getQueryKeywords() : string {
+
+        let queryDataSourceValue = this.properties.dynamicKeywords.tryGetValue();
+        let queryKeywords = this.properties.defaultSearchQuery;
+
+        if (queryDataSourceValue && typeof (queryDataSourceValue) === 'string') {
+            
+            queryKeywords = queryDataSourceValue;
+
+        } else if (queryDataSourceValue && typeof (queryDataSourceValue) === 'object') {
+
+            //https://github.com/microsoft-search/pnp-modern-search/issues/325
+            //new issue with search body as object - 2020-06-23
+            const refChunks = this.properties.dynamicKeywords.reference.split(':');
+
+            if (refChunks.length >= 3) {
+                const environmentType = refChunks[1];
+                const paramType = refChunks[2];
+                if (environmentType == "UrlData" && paramType !== "fragment") {
+                    const paramChunks = paramType.split('.');
+                    const queryTextParam = paramChunks.length === 2 ? paramChunks[1] : 'q';
+                    if (queryDataSourceValue[paramChunks[0]][queryTextParam]) {
+                        queryKeywords = decodeURIComponent(queryDataSourceValue[paramChunks[0]][queryTextParam]);
+                    }
+                }
+                else if (queryDataSourceValue[paramType] && queryDataSourceValue[paramType] !== 'undefined') {
+                    queryKeywords = decodeURIComponent(queryDataSourceValue[paramType]);
+                }
+            }
+
+        }
+
+        return queryKeywords;
+
+    }
+
+    private backwardsCompatability() : void {
+
+        if(isEmpty(this.properties.name)) this.properties.name = AvailableDatasources.SharePointDatasourceName;
+        
+        if(!this.properties.params) {
+            this.properties.params = {};
+            this.properties.params.resultSourceId = this.properties.resultSourceId;
+            this.properties.params.enableQueryRules = this.properties.enableQueryRules;
+            this.properties.params.includeOneDriveResults = this.properties.includeOneDriveResults;
+
+        }
+
+        if(typeof this.properties.selectedProperties === "string") this.properties.selectedProperties = (this.properties.selectedProperties as any).split(",");
+
+        const dynamicKeywords = this.getQueryKeywords();
+        if(this.properties.queryKeywords !== dynamicKeywords) this.properties.dynamicKeywords.setValue(this.properties.queryKeywords);
+
+    }
+
 }

@@ -1,10 +1,9 @@
 import * as React from 'react';
 import { IPersonaSharedProps, IPersonaProps, Persona, Link } from 'office-ui-fabric-react';
-import { BaseWebComponent, IExtensionContext } from 'search-extensibility';
+import { ITemplateService, BaseWebComponent, IExtensionContext } from 'search-extensibility';
 import * as ReactDOM from 'react-dom';
 import { IReadonlyTheme } from '@microsoft/sp-component-base';
 import { ITheme } from '@uifabric/styling';
-import ITemplateService from '../../services/TemplateService/ITemplateService';
 
 export interface IPersonaCardComponentProps {
 

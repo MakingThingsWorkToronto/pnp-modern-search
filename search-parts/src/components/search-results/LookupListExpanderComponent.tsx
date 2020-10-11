@@ -1,6 +1,6 @@
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
-import { BaseWebComponent, IExtensionContext } from 'search-extensibility';
+import { ITemplateService, BaseWebComponent, IExtensionContext } from 'search-extensibility';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import {
     MessageBar,
@@ -8,7 +8,6 @@ import {
 } from 'office-ui-fabric-react';
 import { isEmpty } from '@microsoft/sp-lodash-subset';
 import { sp, Web } from "@pnp/sp";
-import ITemplateService from '../../services/TemplateService/ITemplateService';
 
 export interface ILookupListExpanderComponentProps {
     /**

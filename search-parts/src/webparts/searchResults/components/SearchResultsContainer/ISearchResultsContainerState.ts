@@ -1,5 +1,4 @@
-import { ISearchResults } from 'search-extensibility';
-import { SortDirection } from "@pnp/sp";
+import { ISortFieldDirection, ISearchResults } from 'search-extensibility';
 
 interface ISearchResultsContainerState {
     
@@ -31,7 +30,7 @@ interface ISearchResultsContainerState {
     /**
      * Keeps the order in which the results need to be sorted (after initial sort)
      */
-    sortDirection?: SortDirection;
+    sortDirection?: ISortFieldDirection;
     
     /**
      *  Id for the current mounting node

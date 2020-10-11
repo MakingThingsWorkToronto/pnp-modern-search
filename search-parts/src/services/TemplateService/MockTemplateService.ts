@@ -1,12 +1,11 @@
 import { BaseTemplateService } from                    './BaseTemplateService';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
-import ISearchService from '../SearchService/ISearchService';
-import { IExtensibilityService } from 'search-extensibility';
+import { ISearchService, IExtensibilityService } from 'search-extensibility';
 
 export default class MockTemplateService extends BaseTemplateService {
 
     private ctx: WebPartContext;
-    private searchService: ISearchService;
+    public searchService: ISearchService;
     private _extensibilityService: IExtensibilityService;
 
     constructor(locale: string, ctx : WebPartContext, searchService:ISearchService, extensibilityService: IExtensibilityService) {

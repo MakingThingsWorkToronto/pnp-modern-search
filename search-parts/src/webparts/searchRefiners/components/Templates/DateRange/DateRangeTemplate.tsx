@@ -1,11 +1,10 @@
 import * as React from "react";
-import { IRefinerProps, IRefinerState, IRefinementValue, RefinementOperator } from "search-extensibility";
+import { ITemplateService, IRefinerProps, IRefinerState, IRefinementValue, RefinementOperator } from "search-extensibility";
 import { DatePicker, IDatePickerProps, IDatePickerStyleProps, IDatePickerStyles } from "office-ui-fabric-react/lib/DatePicker";
 import { Link } from "office-ui-fabric-react/lib/Link";
 import update from 'immutability-helper';
 import * as strings from 'SearchRefinersWebPartStrings';
 import { ITheme } from "@uifabric/styling";
-import ITemplateService from '../../../../../services/TemplateService/ITemplateService';
 
 // CSS
 import styles from './DateRangeTemplate.module.scss';

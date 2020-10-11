@@ -1,37 +1,26 @@
-import ResultsLayoutOption from '../../models/ResultsLayoutOption';
 import { DynamicProperty } from '@microsoft/sp-component-base';
-import { ISortFieldConfiguration } from '../../models/ISortFieldConfiguration';
-import ISortableFieldConfiguration from '../../models/ISortableFieldConfiguration';
-import { ISearchResultType } from '../../models/ISearchResultType';
 import { ICustomTemplateFieldValue } from '../../services/ResultService/ResultService';
 import { ISynonymFieldConfiguration} from '../../models/ISynonymFieldConfiguration';
 import IQueryModifierConfiguration from '../../models/IQueryModifierConfiguration';
-import { IExtension } from 'search-extensibility';
 import { IPagingSettings } from '../../models/IPagingSettings';
+import { ISearchResultType, ResultsLayoutOption, ICommonSearchProps, ITemplateParameters } from 'search-extensibility';
 
-export interface ISearchResultsWebPartProps {
-    // specific to all search datasources
-    queryKeywords: DynamicProperty<string>;
-    queryTemplate: string;
-    defaultSearchQuery: string;
-    useDefaultSearchQuery: boolean;
-    searchQueryLanguage: number;
-    enableLocalization: boolean;
-    
-    // new properties to help with dynamic data source
-    searchDataSource?:string;
-    searchDataSourceParameters?: { [key:string]:any };
+export interface ISearchResultsWebPartProps extends ICommonSearchProps, ITemplateParameters {
+
+    dynamicKeywords: DynamicProperty<string>;
 
     /*
-    * Eliminate these in version 6, here for backwards compatability to support upgrade
-    *   These properties support SharePoint search and will be moved into 
-    *   the search datasource parameters property
+    * Eliminate these in version 5, here for backwards compatability to support upgrade scenarios
+    *   These are SharePoint specific datasource properties    
+    *   They are moved into the searchDataSourceParameters property
     */
     resultSourceId: string;
     enableQueryRules: boolean;
     includeOneDriveResults: boolean;
     
-    // template and UI properties
+    /*
+    * Template and UI properties
+    */
     showResultsCount: boolean;
     showBlank: boolean;
     selectedLayout: ResultsLayoutOption;
@@ -41,12 +30,6 @@ export interface ISearchResultsWebPartProps {
     resultTypes: ISearchResultType[];
     rendererId: string;
     customTemplateFieldValues: ICustomTemplateFieldValue[];
-    templateParameters: { [key:string]: any };
-
-    // generic settings
-    selectedProperties: string;
-    sortList: ISortFieldConfiguration[];
-    sortableFields: ISortableFieldConfiguration[];
     useRefiners: boolean;
     useSearchVerticals: boolean;
     refinerDataSourceReference: string;
@@ -57,6 +40,7 @@ export interface ISearchResultsWebPartProps {
     selectedQueryModifierDisplayName: string;
     refinementFilters: string;
     extensibilityLibraries: string[];
+    enableLocalization: boolean;
 
     /**
      * The Web Part paging settings

@@ -1,6 +1,5 @@
-import { PageOpenBehavior, QueryPathBehavior } from '../../helpers/UrlHelper';
 import { DynamicProperty } from '@microsoft/sp-component-base';
-import {IExtension,ISuggestionProviderInstance} from 'search-extensibility';
+import { PageOpenBehavior, QueryPathBehavior, IExtension,ISuggestionProviderInstance} from 'search-extensibility';
 
 interface ISearchBoxWebPartProps {
     searchInNewPage: boolean;

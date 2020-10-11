@@ -7,21 +7,17 @@ import { isEmpty, uniqBy, uniq, trimEnd, get } from '@microsoft/sp-lodash-subset
 import * as strings from 'SearchResultsWebPartStrings';
 import { Text } from '@microsoft/sp-core-library';
 import { DomHelper } from '../../helpers/DomHelper';
-import { ISearchResultType, ResultTypeOperator } from '../../models/ISearchResultType';
 import * as React from 'react';
 import * as ReactDom from 'react-dom';
-import ITemplateService from './ITemplateService';
 import PreviewContainer from '../../controls/PreviewContainer/PreviewContainer';
 import { IPreviewContainerProps, PreviewType } from '../../controls/PreviewContainer/IPreviewContainerProps';
 import { IPropertyPaneField } from '@microsoft/sp-property-pane';
-import ResultsLayoutOption from '../../models/ResultsLayoutOption';
 import { ISearchResultsWebPartProps } from '../../webparts/searchResults/ISearchResultsWebPartProps';
 import { IComboBoxOption } from 'office-ui-fabric-react/lib/ComboBox';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { IReadonlyTheme } from '@microsoft/sp-component-base';
 import groupBy from 'handlebars-group-by';
-import { IExtension, ITimeZoneBias } from 'search-extensibility';
-import ISearchService from '../SearchService/ISearchService';
+import { ISearchResultType, ResultTypeOperator, ResultsLayoutOption, ITemplateService, ISearchService, IExtension, ITimeZoneBias } from 'search-extensibility';
 import Logger from '../LogService/LogService';
 import { LogLevel } from '@pnp/logging';
 import { initializeIcons } from '@uifabric/icons';
@@ -59,7 +55,7 @@ export interface IComponentFieldsConfiguration {
 export abstract class BaseTemplateService implements ITemplateService {
 
     private _ctx: WebPartContext;
-    private _search: ISearchService;
+    public searchService: ISearchService;
     
     public CurrentLocale = "en";
     public TimeZoneBias : ITimeZoneBias = {
@@ -69,8 +65,6 @@ export abstract class BaseTemplateService implements ITemplateService {
         UserDST: 0
     };
     private DayLightSavings = true;
-    
-    public UseOldSPIcons = false;
     public Handlebars = null;
     public Moment = null;
     public Helpers = null;
@@ -78,12 +72,9 @@ export abstract class BaseTemplateService implements ITemplateService {
     constructor(ctx?: WebPartContext, searchService?: ISearchService) {
 
         this._ctx = ctx;
-        this._search = searchService;
+        this.searchService = searchService;
         this.Handlebars = Handlebars.create();
         
-        // Registers all helpers
-        this.registerTemplateServices();
-
         this.DayLightSavings = this.isDST();
 
     }
@@ -230,7 +221,7 @@ export abstract class BaseTemplateService implements ITemplateService {
     /**
      * Registers useful helpers for search results templates
      */
-    private registerTemplateServices() {
+    public init() : void {
 
         //https://support.microsoft.com/en-us/office/file-types-supported-for-previewing-files-in-onedrive-sharepoint-and-teams-e054cd0f-8ef2-4ccb-937e-26e37419c5e4
         const validPreviewExt = ["doc", "docm", "docx", "dotm", "dotx", "pot", "potm", "potx", "pps", "ppsm", "ppsx", "ppt", "pptm", "pptx", "vsd", "vsdx", "xls", "xlsb", "xlsx", "3g2", "3gp", "3mf", "ai", "arw", "asf", "bas", "bmp", "cr2", "crw", "csv", "cur", "dcm", "dng", "dwg", "eml", "epub", "erf", "gif", "glb", "gltf", "hcp", "htm", "html", "ico", "icon", "jpg", "key", "log", "m", "m2ts", "m4v", "markdown", "md", "mef", "mov", "movie", "mp4", "mp4v", "mrw", "msg", "mts", "nef", "nrw", "odp", "ods", "odt", "orf", "pages", "pano", "pdf", "pef", "pict", "ply", "png", "psb", "psd", "rtf", "sketch", "stl", "svg", "tif", "tiff", "ts", "wmv", "xbm", "xcf", "xd", "xpm", "zip", "gitconfig", "abap", "ada", "adp", "ahk", "as", "as3", "asc", "ascx", "asm", "asp", "awk", "bash", "bash_login", "bash_logout", "bash_profile", "bashrc", "bat", "bib", "bsh", "build", "builder", "c", "capfile", "cbl", "cc", "cfc", "cfm", "cfml", "cl", "clj", "cls", "cmake", "cmd", "coffee", "cpp", "cpt", "cpy", "cs", "cshtml", "cson", "csproj", "css", "ctp", "cxx", "d", "ddl", "di.dif", "diff", "disco", "dml", "dtd", "dtml", "el", "emakefile", "erb", "erl", "f", "f90", "f95", "fs", "fsi", "fsscript", "fsx", "gemfile", "gemspec", "go", "groovy", "gvy", "h", "h++", "haml", "handlebars", "hh", "hpp", "hrl", "hs", "htc", "hxx", "idl", "iim", "inc", "inf", "ini", "inl", "ipp", "irbrc", "jade", "jav", "java", "js", "json", "jsp", "jsx", "l", "less", "lhs", "lisp", "lst", "ltx", "lua", "make", "markdn", "mdown", "mkdn", "ml", "mli", "mll", "mly", "mm", "mud", "nfo", "opml", "osascript", "out", "p", "pas", "patch", "php", "php2", "php3", "php4", "php5", "pl", "plist", "pm", "pod", "pp", "profile", "properties", "ps1", "pt", "py", "pyw", "r", "rake", "rb", "rbx", "rc", "re", "reg", "rest", "resw", "resx", "rhtml", "rjs", "rprofile", "rpy", "rss", "rst", "rxml", "s", "sass", "scala", "scm", "sconscript", "sconstruct", "script", "scss", "sgml", "sh", "shtml", "sml", "sql", "sty", "tcl", "tex", "text", "tld", "tli", "tmpl", "tpl", "txt", "vb", "vi", "vim", "wsdl", "xaml", "xhtml", "xoml", "xml", "xsd", "xsl", "xslt", "yaml", "yaws", "yml", "zs", "mp3", "fbx", "heic", "jpeg", "hbs", "textile", "c++"];
@@ -475,7 +466,7 @@ export abstract class BaseTemplateService implements ITemplateService {
                     try {
                         Logger.write(`[MSWP.BaseTemplateService.registerHelpers()]: Creating instance of helper ` + helper.name);
                         let instance = ExtensionHelper.create(helper.extensionClass) as IHandlebarsHelperInstance;
-                        instance.context = { webPart: this._ctx, search: this._search, template: this };
+                        instance.context = { webPart: this._ctx, search: this.searchService, template: this };
                         Logger.write(`[MSWP.BaseTemplateService.registerHelpers()]: Registering helper ` + helper.name);
                         if(typeof instance.helper == "function") this.Handlebars.registerHelper(helper.name, instance.helper);
                     } catch(ex) {
@@ -501,7 +492,7 @@ export abstract class BaseTemplateService implements ITemplateService {
                 // Set the arbitrary property to all instances to get the WebPart context available in components (ex: PersonaCard)
                 wc.extensionClass.prototype.context = {
                     webPart: this._ctx,
-                    search: this._search,
+                    search: this.searchService,
                     template: this
                 };
 
@@ -684,7 +675,7 @@ export abstract class BaseTemplateService implements ITemplateService {
             }
         }
 
-        this.UseOldSPIcons = templateContent && templateContent.indexOf("{{IconSrc}}") !== -1;
+        this.searchService.useOldIcons = templateContent && templateContent.indexOf("{{IconSrc}}") !== -1;
 
         if (templateContent && (templateContent.indexOf("fabric-icon") !== -1 || templateContent.indexOf("details-list") !== -1 || templateContent.indexOf("document-card") !== -1)) {
             // load CDN for icons
@@ -751,7 +742,7 @@ export abstract class BaseTemplateService implements ITemplateService {
         return processedProps as T;
     }
 
-    private resultTypesTemplates: { [instanceId: string]: HandlebarsTemplateDelegate<any> } = {};
+    //private resultTypesTemplates: { [instanceId: string]: HandlebarsTemplateDelegate<any> } = {};
 
     /**
      * Builds and registers the result types as Handlebars partials

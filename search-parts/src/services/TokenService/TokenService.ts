@@ -1,6 +1,6 @@
 import { SPHttpClient, SPHttpClientResponse } from "@microsoft/sp-http";
 import { Text, Log } from "@microsoft/sp-core-library";
-import { ITokenService } from ".";
+import { ITokenService } from "search-extensibility";
 import { UrlQueryParameterCollection } from '@microsoft/sp-core-library';
 import { PageContext } from "@microsoft/sp-page-context";
 import { isEmpty } from '@microsoft/sp-lodash-subset';

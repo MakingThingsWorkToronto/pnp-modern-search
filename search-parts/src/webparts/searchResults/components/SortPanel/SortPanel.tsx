@@ -6,7 +6,7 @@ import * as strings from 'SearchResultsWebPartStrings';
 import { ActionButton } from 'office-ui-fabric-react/lib/Button';
 import { SortDirection } from '@pnp/sp';
 import styles from '../SearchResultsWebPart.module.scss';
-import { ISortFieldDirection } from '../../../../models/ISortFieldConfiguration';
+import { ISortFieldDirection } from 'search-extensibility';
 
 export default class SortPanel extends React.Component<ISortPanelProps, ISortPanelState> {
 
@@ -14,7 +14,7 @@ export default class SortPanel extends React.Component<ISortPanelProps, ISortPan
         super(props);
 
         this.state = {
-            sortDirection: this.props.sortDirection ? this.props.sortDirection : SortDirection.Ascending,
+            sortDirection: this.props.sortDirection ? this.props.sortDirection : ISortFieldDirection.Ascending,
             sortField: this.props.sortField ? this.props.sortField : null
         };
 
@@ -50,10 +50,10 @@ export default class SortPanel extends React.Component<ISortPanelProps, ISortPan
                 <ActionButton
                     className={`${styles.searchWp__filterResultBtn} ms-fontWeight-semibold`}
                     iconProps={{
-                        iconName: this.state.sortDirection === SortDirection.Ascending ? 'Ascending' : 'Descending'
+                        iconName: this.state.sortDirection === ISortFieldDirection.Ascending ? 'Ascending' : 'Descending'
                     }}
                     disabled={!this.state.sortField ? true : false}
-                    title={this.state.sortDirection === SortDirection.Ascending ? strings.Sort.SortDirectionAscendingLabel : strings.Sort.SortDirectionDescendingLabel}
+                    title={this.state.sortDirection === ISortFieldDirection.Ascending ? strings.Sort.SortDirectionAscendingLabel : strings.Sort.SortDirectionDescendingLabel}
                     onClick={() => {
                         this._setSortDirection();
                     }}
@@ -72,20 +72,6 @@ export default class SortPanel extends React.Component<ISortPanelProps, ISortPan
     private _setSortDirection() {
 
         let sortDirection = this.state.sortDirection;
-
-        switch (this.state.sortDirection) {
-            case SortDirection.Ascending:
-                sortDirection = SortDirection.Descending;
-                break;
-
-            case SortDirection.Descending:
-                sortDirection = SortDirection.Ascending;
-                break;
-
-            default:
-                sortDirection = SortDirection.Ascending;
-                break;
-        }
 
         this.setState({
             sortDirection: sortDirection,

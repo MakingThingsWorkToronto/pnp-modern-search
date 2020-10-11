@@ -1,63 +1,77 @@
-import ISearchService from './ISearchService';
-import { ISearchResults, ISearchResult, IRefinementResult, IRefinementValue, IRefinementFilter, IPromotedResult, ISearchVerticalInformation, ISearchResultBlock,
-    RefinersSortOption, RefinerSortDirection, IRefinerConfiguration, IManagedPropertyInfo } from 'search-extensibility';
+
+import { ISearchServiceInitializer, ITokenService, ISearchResults, ISearchResult, IRefinementResult, IRefinementValue, IRefinementFilter, IPromotedResult, ISearchVerticalInformation, ISearchResultBlock,
+    RefinersSortOption, RefinerSortDirection, IRefinerConfiguration, IManagedPropertyInfo, IExtensionContext, ExtensionTypes, ISearchParams } from 'search-extensibility';
+import * as strings from 'SearchResultsWebPartStrings';
 import { LogLevel } from '@pnp/logging';
 import Logger from '../../services/LogService/LogService';
 import { Text, Guid } from '@microsoft/sp-core-library';
 import { sortBy, isEmpty } from '@microsoft/sp-lodash-subset';
 import LocalizationHelper from '../../helpers/LocalizationHelper';
 import "@pnp/polyfill-ie11";
-import { ISearchServiceConfiguration } from '../../models/ISearchServiceConfiguration';
-import { ITokenService, TokenService } from '../TokenService';
 import { PageContext } from '@microsoft/sp-page-context';
 import { SPHttpClient } from '@microsoft/sp-http';
 import ISynonymTable from '../../models/ISynonym';
 import { JSONParser } from '@pnp/odata';
 import { UrlHelper } from '../../helpers/UrlHelper';
-import { ISearchVertical } from '../../models/ISearchVertical';
-
-import { BaseQueryModifier, ITimeZoneBias } from 'search-extensibility';
-import { ISharePointSearch } from './ISharePointSearch';
+import {
+    IPropertyPaneConfiguration,
+    PropertyPaneTextField,
+    PropertyPaneDynamicFieldSet,
+    PropertyPaneDynamicField,
+    DynamicDataSharedDepth,
+    IPropertyPaneConditionalGroup,
+    IPropertyPaneField,
+    IPropertyPaneGroup,
+    PropertyPaneToggle,
+    PropertyPaneSlider,
+    IPropertyPaneChoiceGroupOption,
+    PropertyPaneChoiceGroup,
+    PropertyPaneCheckbox,
+    PropertyPaneHorizontalRule,
+    PropertyPaneDropdown,
+    IPropertyPaneDropdownOption,
+    PropertyPaneLabel
+} from "@microsoft/sp-property-pane";
+import { ISearchServiceConfiguration, ISearchVertical, ISortFieldConfiguration, ISortFieldDirection, ICommonSearchProps, ITemplateService, BaseQueryModifier, ITimeZoneBias } from 'search-extensibility';
 import { trimStart, trimEnd } from '@microsoft/sp-lodash-subset';
 import { sp, SearchQuery, SearchResults, SPRest, Sort, SearchSuggestQuery, SortDirection, Web } from '@pnp/sp';
-import ITemplateService from '../TemplateService/ITemplateService';
-import { IPropertyPaneGroup } from '@microsoft/sp-property-pane';
+import { SearchHelper } from '../../helpers/SearchHelper';
+import { ISharePointSearchService } from './ISharePointSearchService';
+import {  ISearchResultsWebPartProps } from '../../webparts/searchResults/ISearchResultsWebPartProps';
 
-class SearchService implements ISearchService {
+const SEARCH_SERVICE_NAME = "SharePoint";
+
+class SearchService implements ISharePointSearchService {
+
+    private _config: ICommonSearchProps;
     private _initialSearchResult: SearchResults = null;
     private _resultsCount: number;
     private _pageContext: PageContext;
     private _tokenService: ITokenService;
     private _templateService: ITemplateService;
-    private _selectedProperties: string[];
-    private _queryTemplate: string;
     private _resultSourceId: string;
-    private _sortList: Sort[];
     private _enableQueryRules: boolean;
     private _includeOneDriveResults: boolean;
     private _refiners: IRefinerConfiguration[];
-    private _refinementFilters: string[];
+    private _refinementFilters: IRefinementFilter[];
     private _synonymTable: ISynonymTable;
     private _queryCulture: number;
     private _timeZoneId: number;
     private _queryModifier: BaseQueryModifier;
 
+    public extensionType: string = ExtensionTypes.SearchDatasource; 
+    public context: IExtensionContext = null;
+    public useOldIcons: boolean = false;
     public timeZonebias: ITimeZoneBias;
 
     public get resultsCount(): number { return this._resultsCount; }
     public set resultsCount(value: number) { this._resultsCount = value; }
 
-    public set selectedProperties(value: string[]) { this._selectedProperties = value; }
-    public get selectedProperties(): string[] { return this._selectedProperties; }
-
-    public set queryTemplate(value: string) { this._queryTemplate = value; }
-    public get queryTemplate(): string { return this._queryTemplate; }
+    public set config(value: ICommonSearchProps) { this._config = value; }
+    public get config(): ICommonSearchProps { return this._config; }
 
     public set resultSourceId(value: string) { this._resultSourceId = value; }
     public get resultSourceId(): string { return this._resultSourceId; }
-
-    public set sortList(value: Sort[]) { this._sortList = value; }
-    public get sortList(): Sort[] { return this._sortList; }
 
     public set enableQueryRules(value: boolean) { this._enableQueryRules = value; }
     public get enableQueryRules(): boolean { return this._enableQueryRules; }
@@ -68,8 +82,8 @@ class SearchService implements ISearchService {
     public set refiners(value: IRefinerConfiguration[]) { this._refiners = value; }
     public get refiners(): IRefinerConfiguration[] { return this._refiners; }
 
-    public set refinementFilters(value: string[]) { this._refinementFilters = value; }
-    public get refinementFilters(): string[] { return this._refinementFilters; }
+    public set refinementFilters(value: IRefinementFilter[]) { this._refinementFilters = value; }
+    public get refinementFilters(): IRefinementFilter[] { return this._refinementFilters; }
 
     public set synonymTable(value: ISynonymTable) { this._synonymTable = value; }
     public get synonymTable(): ISynonymTable { return this._synonymTable; }
@@ -84,11 +98,16 @@ class SearchService implements ISearchService {
     public set queryModifier(value: BaseQueryModifier) { this._queryModifier = value; }
 
     private _localPnPSetup: SPRest;
+    
+    public constructor(){}
 
-    public constructor(pageContext: PageContext, spHttpClient: SPHttpClient) {
-        this._pageContext = pageContext;
-        this._tokenService = new TokenService(this._pageContext, spHttpClient);
+    public async init(config: ISearchServiceInitializer) : Promise<void> {
 
+        this._tokenService = config.tokenService;
+        this._templateService = config.templateService;
+        this._pageContext = config.webPartContext.pageContext;
+        this._config = config.config;
+        
         // To limit the payload size, we set odata=nometadata
         // We just need to get list items here
         // We use a local configuration to avoid conflicts with other Web Parts
@@ -97,6 +116,7 @@ class SearchService implements ISearchService {
                 Accept: 'application/json; odata=nometadata',
             },
         }, this._pageContext.web.absoluteUrl);
+
     }
 
     /**
@@ -104,19 +124,19 @@ class SearchService implements ISearchService {
      * @param query The search query in KQL format
      * @return The search results
      */  
-    public search(query: string, params: ISharePointSearch) : Promise<ISearchResults> {
-        return this._search(query, params.pageNumber, params.useOldSPIcons);
-    }
+    public async search(params: ISearchParams) : Promise<ISearchResults> {
 
-    private async _search(query: string, pageNumber?: number, useOldSPIcons?: boolean): Promise<ISearchResults> {
-
+        const query = params.kqlQuery;
         let searchQuery: SearchQuery = {};
         let sortedRefiners: string[] = [];
         let sortedRefinersCleanName: string[] = [];
         let queryModification: string = null;
+        let selectedFilters = this.refinementFilters.length > 0 
+                ? SearchHelper.buildRefinementQueryString(this.refinementFilters) 
+                : [];
 
         // Search paging option is one based
-        let page = pageNumber ? pageNumber : 1;
+        let page = typeof params.pageNumber === "number" ? params.pageNumber : 1;
 
         searchQuery.ClientType = 'PnPModernSearch';
         searchQuery.Properties = [{
@@ -213,20 +233,27 @@ class SearchService implements ISearchService {
 
         // To be able to use search query variable according to the current context
         // http://www.techmikael.com/2015/07/sharepoint-rest-do-support-query.html
-        searchQuery.QueryTemplate = await this._tokenService.replaceQueryVariables(this._queryTemplate);
+        searchQuery.QueryTemplate = await this._tokenService.replaceQueryVariables(this.config.queryTemplate);
         
         
         searchQuery.RowLimit = this._resultsCount ? this._resultsCount : 50;
-        searchQuery.SelectProperties = this._selectedProperties;
+        searchQuery.SelectProperties = this.config.selectedProperties;
         searchQuery.TrimDuplicates = false;
-        searchQuery.SortList = this._sortList ? this._sortList : [];
+        searchQuery.SortList = !this.config.sortList
+            ? []
+            : this.config.sortList.map((sortConfig:ISortFieldConfiguration)=>{
+                return {
+                    Property: sortConfig.sortField,
+                    Direction: sortConfig.sortDirection === ISortFieldDirection.Descending ? SortDirection.Descending : SortDirection.Ascending
+                };
+            }) ;
 
         // https://docs.microsoft.com/en-us/previous-versions/office/sharepoint-csom/jj262828(v%3Doffice.15)
         if (this._queryCulture) {
             searchQuery.Culture = this._queryCulture;
         }
 
-        if (this.refiners) {
+        if (this.refiners && this.refiners.length > 0) {
             // Get the refiners order specified in the property pane
             const refinableDate = /(RefinableDate\d+)|(RefinableDateSingle\d+)|(LastModifiedTime)|(LastModifiedTimeForRetention)|(Created)/gi;
 
@@ -272,8 +299,8 @@ class SearchService implements ISearchService {
             searchQuery.Refiners = sortedRefiners.join(',');
         }
 
-        if (this.refinementFilters && this.refinementFilters.length > 0 && this.refinementFilters[0].length > 0) {
-            searchQuery.RefinementFilters = this.refinementFilters;
+        if (selectedFilters && selectedFilters.length > 0 && selectedFilters[0].length > 0) {
+            searchQuery.RefinementFilters = selectedFilters;
         }
 
         let results: ISearchResults = {
@@ -282,7 +309,7 @@ class SearchService implements ISearchService {
             SecondaryResults: [],
             RefinementResults: [],
             PaginationInformation: {
-                CurrentPage: pageNumber,
+                CurrentPage: params.pageNumber,
                 MaxResultsPerPage: this.resultsCount,
                 TotalRows: 0
             }
@@ -359,7 +386,7 @@ class SearchService implements ISearchService {
                 });
 
                 // Map results icon (using batch)
-                searchResults = await this._mapToIcons(searchResults, useOldSPIcons);
+                searchResults = await this._mapToIcons(searchResults, this.useOldIcons);
 
                 // Map shortcut Urls if FileType url (using batch)
                 searchResults = await this._mapShortCutUrls(searchResults);
@@ -476,7 +503,7 @@ class SearchService implements ISearchService {
                     results.PromotedResults = promotedResults;
 
                     secondaryResults = await Promise.all(secondaryResults.map(async (srb) => {
-                        srb.Results = await this._mapToIcons(srb.Results, useOldSPIcons);
+                        srb.Results = await this._mapToIcons(srb.Results, this.useOldIcons);
                         srb.Results = await this._mapShortCutUrls(srb.Results);
                         return srb;
                     }));
@@ -536,7 +563,7 @@ class SearchService implements ISearchService {
      * @param searchVerticalsConfiguration the search verticals configuration
      * @param enableQueryRules enable query rules or not
      */
-    public async getSearchVerticalCounts(queryText: string, searchVerticals: ISearchVertical[], enableQueryRules: boolean): Promise<ISearchVerticalInformation[]> {
+    public async getSearchVerticalCounts(queryText: string, searchVerticals: ISearchVertical[]): Promise<ISearchVerticalInformation[]> {
 
         const batch = this._localPnPSetup.createBatch();
         const parser = new JSONParser();
@@ -547,14 +574,14 @@ class SearchService implements ISearchService {
         let tokenPromises: Promise<string>[] = [];
 
         tokenPromises = searchVerticals.filter(v => !v.isLink).map(vertical => {
-            return this._tokenService.replaceQueryVariables(vertical.queryTemplate);
+            return this._tokenService.replaceQueryVariables(vertical.configuration.queryTemplate);
         });
 
         const tokens = await Promise.all(tokenPromises);
 
         // Update verticals with new infos
         tokens.map((token, i) => {
-            searchVerticals[i].queryTemplate = token;
+            searchVerticals[i].configuration.queryTemplate = token;
         });
 
         const promises = searchVerticals.map(async (vertical, index:number) => {
@@ -565,31 +592,34 @@ class SearchService implements ISearchService {
 
             // When query rules are enabled, we need to set the row limit to minimum 1 to get data in the 'PrimaryQueryResult' property and get the 'TotalRows'
             // More info here https://blog.mastykarz.nl/inconvenient-content-targeting-user-segments-search-rest-api/
-            const rowLimit: string = enableQueryRules ? '1' : '0';
+            const rowLimit: string = this.enableQueryRules ? '1' : '0';
 
             // See http://www.silver-it.com/node/127 for quotes handling with GET requests
             url = UrlHelper.addOrReplaceQueryStringParam(url, 'querytext', `'${encodeURIComponent(queryText.replace(/'/g, '\'\''))}'`);
             url = UrlHelper.addOrReplaceQueryStringParam(url, 'rowlimit', rowLimit);
-            url = UrlHelper.addOrReplaceQueryStringParam(url, 'querytemplate', `'${vertical.queryTemplate}'`);
+            url = UrlHelper.addOrReplaceQueryStringParam(url, 'querytemplate', `'${vertical.configuration.queryTemplate}'`);
             url = UrlHelper.addOrReplaceQueryStringParam(url, 'trimduplicates', "'false'");
             url = UrlHelper.addOrReplaceQueryStringParam(url, 'properties', "'EnableDynamicGroups:true,EnableMultiGeoSearch:true'");
             url = UrlHelper.addOrReplaceQueryStringParam(url, 'clienttype', "'PnPModernSearch'");
-            url = UrlHelper.addOrReplaceQueryStringParam(url, 'enablequeryrules', `${enableQueryRules}`);
+            url = UrlHelper.addOrReplaceQueryStringParam(url, 'enablequeryrules', `${this.enableQueryRules}`);
 
             if (this._queryCulture) {
                 url = UrlHelper.addOrReplaceQueryStringParam(url, 'culture', `${this.queryCulture}`);
             }
 
-            if (vertical.resultSourceId) {
-                url = UrlHelper.addOrReplaceQueryStringParam(url, 'sourceid', `'${vertical.resultSourceId}'`);
+            if (vertical.configuration && vertical.configuration.params && vertical.configuration.params.resultSourceId) {
+                
+                url = UrlHelper.addOrReplaceQueryStringParam(url, 'sourceid', `'${vertical.configuration.params.resultSourceId}'`);
+                
                 // enable phoenetic search for people result source
-                if (vertical.resultSourceId.toLocaleLowerCase() === "b09a7990-05ea-4af9-81ef-edfab16c4e31") {
+                if (vertical.configuration.params.resultSourceId.toLocaleLowerCase() === "b09a7990-05ea-4af9-81ef-edfab16c4e31") {
                     url = UrlHelper.addOrReplaceQueryStringParam(url, 'enablenicknames', 'true');
                     url = UrlHelper.addOrReplaceQueryStringParam(url, 'enablephonetic', 'true');
                 } else {
                     url = UrlHelper.addOrReplaceQueryStringParam(url, 'enablenicknames', 'false');
                     url = UrlHelper.addOrReplaceQueryStringParam(url, 'enablephonetic', 'false');
                 }
+
             }
 
             return batch.add(url, 'GET', {
@@ -715,14 +745,12 @@ class SearchService implements ISearchService {
      */
     public getConfiguration(): ISearchServiceConfiguration {
         return {
+            config: this.config,
             enableQueryRules: this.enableQueryRules,
-            queryTemplate: this.queryTemplate,
             refinementFilters: this.refinementFilters,
             refiners: this.refiners,
             resultSourceId: this.resultSourceId,
             resultsCount: this.resultsCount,
-            selectedProperties: this.selectedProperties,
-            sortList: this.sortList,
             synonymTable: this.synonymTable,
             queryCulture: this.queryCulture
         } as ISearchServiceConfiguration;
@@ -732,8 +760,8 @@ class SearchService implements ISearchService {
      * Gets the icons corresponding to the result file name extensions
      * @param searchResults The raw search results
      */
-    private async _mapToIcons(searchResults: ISearchResult[], useOldSPIcons: boolean): Promise<ISearchResult[]> {
-        if (useOldSPIcons) {
+    private async _mapToIcons(searchResults: ISearchResult[], useOldIcons: boolean): Promise<ISearchResult[]> {
+        if (useOldIcons) {
             // fallback for backwards compat - remove useOldSPIcons later at some point
             try {
                 let updatedSearchResults = searchResults;
@@ -996,19 +1024,72 @@ class SearchService implements ISearchService {
         return searchQuery;
     }
 
-    public initializeTemplateService(svc: ITemplateService) : void {
-        this._templateService = svc;
-    }
-
-    public async getPropertyPane() : Promise<IPropertyPaneGroup> {
+    public getPropertyPane(props: ISearchResultsWebPartProps) : IPropertyPaneGroup {
         
         return {
-            groupName: "SharePoint Datasource",
-            groupFields: [],
+            groupName: "SharePoint",
+            groupFields: [
+                PropertyPaneTextField('params.resultSourceId', {
+                    label: strings.ResultSourceIdLabel,
+                    description: strings.ResultSourceIdDescription,
+                    multiline: false,
+                    value: props.params.resultSourceId,
+                    onGetErrorMessage: this._validateSourceId.bind(this),
+                    deferredValidationTime: 300
+                }),
+                PropertyPaneToggle('params.enableQueryRules', {
+                    label: strings.EnableQueryRulesLabel,
+                    checked: props.params.enableQueryRules,
+                }),
+                PropertyPaneToggle('params.includeOneDriveResults', {
+                    label: strings.IncludeOneDriveResultsLabel,
+                    checked: props.params.includeOneDriveResults,
+                }),
+            ],
             isCollapsed: false
         };
         
     }
+
+    /**
+     * Ensures the result source id value is a valid GUID or a string with format: Level|Result source name
+     * @param value the result source id
+     */
+    private _validateSourceId(value: string): string {
+        if (value.length > 0) {
+            if (!(/^(\{){0,1}[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}(\}){0,1}$/).test(value)) {
+                return this._validateSourceName(value);
+            }
+        }
+
+        return '';
+    }
+
+    private _validateSourceName(value: string): string {
+        const validLevels: string[] = ["SPSiteSubscription", "SPSite", "SPWeb"];
+        if (value.length > 0) {
+            const parts: string[] = value.split("|");
+
+            if (parts.length !== 2) return strings.InvalidResultSourceIdMessage;
+
+            const level: string = parts[0];
+            const resultSourceName: string = parts[1];
+            if (validLevels.find(i => i.toLowerCase() === level.toLowerCase())) {
+                if (!resultSourceName) {
+                    return strings.InvalidResultSourceIdMessage;
+                }
+            } else {
+                return strings.InvalidResultSourceIdMessage;
+            }
+        }
+
+        return '';
+    }    
+
+    public getHashKey(): string {
+        return this.resultSourceId;
+    }
+    
 }
 
 export default SearchService;

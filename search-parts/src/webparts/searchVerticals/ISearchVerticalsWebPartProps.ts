@@ -1,4 +1,4 @@
-import { ISearchVertical } from "../../models/ISearchVertical";
+import { ISearchVertical } from "search-extensibility";
 
 export interface ISearchVerticalsWebPartProps {
     

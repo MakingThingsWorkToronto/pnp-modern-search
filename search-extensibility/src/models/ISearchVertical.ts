@@ -1,4 +1,4 @@
-import { PageOpenBehavior } from "../helpers/UrlHelper";
+import { PageOpenBehavior, ICommonSearchProps } from "..";
 
 export interface ISearchVertical {
     /**
@@ -7,14 +7,19 @@ export interface ISearchVertical {
     key: string;
 
     /**
-     * The query template corresponding to the vertical
+     * Search configuration
      */
+    configuration: ICommonSearchProps;
+
+    /******************************************************
+    REMOVED IN FAVOR OF CONFIGURATION SEARCH PROPS
+    
+    //The query template corresponding to the vertical
     queryTemplate: string;
 
-    /**
-     * The result source id corresponding to the vertical
-     */
+    //The result source id corresponding to the vertical
     resultSourceId: string;
+    ******************************************************/
 
     /**
      * The vertical tab name

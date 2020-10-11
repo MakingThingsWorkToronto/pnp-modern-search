@@ -1,4 +1,4 @@
-import ITemplateService from               '../../services/TemplateService/ITemplateService';
+import { ITemplateService } from 'search-extensibility';
 
 interface ISearchTemplateProps<Context extends object> {
 

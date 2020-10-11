@@ -1,8 +1,8 @@
-import { SortDirection } from "@pnp/sp";
+import { ISortFieldDirection } from "search-extensibility";
 
 interface IFilterPanelState {
     sortField?: string;
-    sortDirection: SortDirection;
+    sortDirection: ISortFieldDirection;
 }
 
 export default IFilterPanelState;

@@ -1,5 +1,5 @@
-import { SortDirection } from "@pnp/sp";
+import { ISortFieldDirection } from "search-extensibility";
 
-type UpdateSortOperationCallback = (sortDirection: SortDirection, sortField?: string) => void;
+type UpdateSortOperationCallback = (sortDirection: ISortFieldDirection, sortField?: string) => void;
 
 export default UpdateSortOperationCallback;

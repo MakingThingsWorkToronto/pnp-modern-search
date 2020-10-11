@@ -1,3 +1,4 @@
 export interface ISearchParams {
-    clientType?: string;
+    kqlQuery:string;
+    pageNumber:number;
 }

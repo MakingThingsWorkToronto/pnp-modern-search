@@ -1,16 +1,15 @@
-import ResultsLayoutOption from '../../models/ResultsLayoutOption';
-import { ISearchResultsWebPartProps } from '../../webparts/searchResults/ISearchResultsWebPartProps';
+import { ISearchResultType, IExtension, ITemplateParameters, ResultsLayoutOption } from '..';
 import { IComboBoxOption } from 'office-ui-fabric-react/lib/ComboBox';
 import { IPropertyPaneField } from '@microsoft/sp-property-pane';
-import { IExtension } from 'search-extensibility';
 import { IReadonlyTheme } from '@microsoft/sp-component-base';
-import { ISearchResultType } from '../../models/ISearchResultType';
+import { ISearchService } from './ISearchService';
 
-export default interface ITemplateService {
+export interface ITemplateService {
     Handlebars: any;
     Moment: any;
-    UseOldSPIcons:boolean;
-    getTemplateParameters(layout: ResultsLayoutOption, properties: ISearchResultsWebPartProps, onUpdateAvailableProperties?: (properties: IComboBoxOption[]) => void, availableProperties?: IComboBoxOption[]): IPropertyPaneField<any>[];
+    searchService:ISearchService;
+    init():void;
+    getTemplateParameters(layout: ResultsLayoutOption, properties: ITemplateParameters, onUpdateAvailableProperties?: (properties: IComboBoxOption[]) => void, availableProperties?: IComboBoxOption[]): IPropertyPaneField<any>[];
     getTemplateDefaultContent(layout: ResultsLayoutOption): string;
     getTemplateContent(templateHtml: string, templateFilePath: string) : Promise<string>;
     getDefaultResultTypeListItem(): string;

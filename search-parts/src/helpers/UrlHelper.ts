@@ -1,3 +1,5 @@
+import { PageOpenBehavior, QueryPathBehavior } from 'search-extensibility';
+
 export class UrlHelper {
 
     /**
@@ -72,14 +74,4 @@ export class UrlHelper {
 
         return newString;
     }
-}
-
-export enum PageOpenBehavior {
-    "Self",
-    "NewTab"
-}
-
-export enum QueryPathBehavior {
-    "URLFragment",
-    "QueryParameter"
 }

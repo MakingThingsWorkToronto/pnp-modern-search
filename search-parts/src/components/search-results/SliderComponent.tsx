@@ -4,8 +4,7 @@ import 'flickity-imagesloaded';
 import 'flickity/dist/flickity.min.css';
 import * as ReactDOM from 'react-dom';
 import { MessageBar, MessageBarType } from 'office-ui-fabric-react/lib/MessageBar';
-import { BaseWebComponent, IExtensionContext } from 'search-extensibility';
-import ITemplateService from '../../services/TemplateService/ITemplateService';
+import { ITemplateService, BaseWebComponent, IExtensionContext } from 'search-extensibility';
 
 export interface ISliderProps {
     options?: any;

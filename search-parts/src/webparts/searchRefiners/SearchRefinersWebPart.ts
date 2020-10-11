@@ -12,10 +12,10 @@ import {
   PropertyPaneToggle
 } from "@microsoft/sp-property-pane";
 import * as strings from 'SearchRefinersWebPartStrings';
-import { ExtensionTypes, IExtension, IExtensibilityService, 
+import { ITemplateService, ISearchService, ExtensionTypes, IExtension, IExtensibilityService, 
   IExtensibilityLibrary, IRefinementFilter, IUserService, ITimeZoneBias, 
   RefinersLayoutOption, RefinerTemplateOption,
-  RefinersSortOption, RefinerSortDirection, IEditorLibrary, IRefinerConfiguration } from 'search-extensibility';
+  RefinersSortOption, RefinerSortDirection, IEditorLibrary, IRefinerConfiguration, ISearchServiceInitializer } from 'search-extensibility';
 import SearchRefinersContainer from './components/SearchRefinersContainer/SearchRefinersContainer';
 import { IDynamicDataCallables, IDynamicDataPropertyDefinition, IDynamicDataSource } from '@microsoft/sp-dynamic-data';
 import { ISearchRefinersWebPartProps } from './ISearchRefinersWebPartProps';
@@ -27,9 +27,7 @@ import { ISearchRefinersContainerProps } from './components/SearchRefinersContai
 import ISearchResultSourceData from '../../models/ISearchResultSourceData';
 import { DynamicDataService } from '../../services/DynamicDataService/DynamicDataService';
 import IDynamicDataService from '../../services/DynamicDataService/IDynamicDataService';
-import ISearchService from '../../services/SearchService/ISearchService';
 import { IComboBoxOption } from 'office-ui-fabric-react/lib/ComboBox';
-import ITemplateService from '../../services/TemplateService/ITemplateService';
 import { cloneDeep, isEqual } from '@microsoft/sp-lodash-subset';
 import { UserService } from '../../services/UserService/UserService';
 import { MockUserService } from '../../services/UserService/MockUserService';
@@ -39,6 +37,7 @@ import { CssHelper } from '../../helpers/CssHelper';
 import { AvailableComponents } from '../../components/AvailableComponents';
 import { Guid } from '@microsoft/sp-core-library';
 import Logger from '../../services/LogService/LogService';
+import { TokenService } from '../../services/TokenService/TokenService';
 
 const STYLE_PREFIX :string = "pnp-filter-wp-";
 
@@ -102,7 +101,7 @@ export default class SearchRefinersWebPart extends BaseClientSideWebPart<ISearch
     let queryKeywords = '';
     let selectedProperties: string[] = [];
     let queryTemplate: string = '';
-    let resultSourceId: string = '';
+    //let resultSourceId: string = '';
     let defaultSelectedFilters: IRefinementFilter[] = [];
 
     if (this.properties.searchResultsDataSourceReference) {
@@ -115,9 +114,8 @@ export default class SearchRefinersWebPart extends BaseClientSideWebPart<ISearch
           availableRefiners = searchResultSourceData.refinementResults;
           queryKeywords = searchResultSourceData.queryKeywords;
           const searchServiceConfig = searchResultSourceData.searchServiceConfiguration;
-          selectedProperties = (searchServiceConfig.selectedProperties) ? searchServiceConfig.selectedProperties : [];
-          queryTemplate = (searchServiceConfig.queryTemplate) ? searchServiceConfig.queryTemplate : '';
-          resultSourceId = searchServiceConfig.resultSourceId;
+          selectedProperties = (searchServiceConfig.config.selectedProperties) ? searchServiceConfig.config.selectedProperties : [];
+          queryTemplate = (searchServiceConfig.config.queryTemplate) ? searchServiceConfig.config.queryTemplate : '';
           defaultSelectedFilters = searchResultSourceData.defaultSelectedRefinementFilters;
         }
       }
@@ -138,7 +136,7 @@ export default class SearchRefinersWebPart extends BaseClientSideWebPart<ISearch
           },
           selectedLayout: this.properties.selectedLayout,
           language: this.context.pageContext.cultureInfo.currentUICultureName,
-          query: queryKeywords + queryTemplate + selectedProperties + resultSourceId, // this is used as a generic key to check if the query is unique.
+          query: queryKeywords + queryTemplate + selectedProperties + this._searchService.getHashKey(), // this is used as a generic key to check if the query is unique.
           themeVariant: this._themeVariant,
           userService: this._userService,
           defaultSelectedRefinementFilters: defaultSelectedFilters,
@@ -254,7 +252,7 @@ export default class SearchRefinersWebPart extends BaseClientSideWebPart<ISearch
         /* webpackChunkName: 'mock-search-service' */
         /* webpackMode: 'lazy' */
         '../../services/SearchService/SearchService');
-      this._searchService = new ss.default(this.context.pageContext, this.context.spHttpClient);
+      this._searchService = new ss.default();
 
       this._userService = new UserService(this.context.pageContext);
       
@@ -283,8 +281,17 @@ export default class SearchRefinersWebPart extends BaseClientSideWebPart<ISearch
     }
     
     await this._loadExtensibility();
+    const searchResultsConfig =  (this._searchResultSourceData ? this._searchResultSourceData.tryGetValue() : null);
 
-    this._searchService.initializeTemplateService(this._templateService);
+    const initConfig: ISearchServiceInitializer = {
+      webPartContext: this.context,
+      templateService: this._templateService,
+      tokenService: new TokenService(this.context.pageContext, this.context.spHttpClient),
+      config: (searchResultsConfig && searchResultsConfig.searchServiceConfiguration ? searchResultsConfig.searchServiceConfiguration.config : null),
+    };
+    this._searchService.init(initConfig);
+
+    this._templateService.init();
 
     this.context.dynamicDataSourceManager.initializeSource(this);
 

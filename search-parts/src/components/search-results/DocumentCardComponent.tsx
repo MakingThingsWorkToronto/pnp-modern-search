@@ -11,11 +11,10 @@ import { IReadonlyTheme } from "@microsoft/sp-component-base";
 import { merge, trimStart, isEmpty } from '@microsoft/sp-lodash-subset';
 import { getFileTypeIconProps, FileIconType } from '@uifabric/file-type-icons';
 import { GlobalSettings } from 'office-ui-fabric-react/lib/Utilities'; // has to be present
-import { BaseWebComponent, IExtensionContext } from 'search-extensibility';
+import { ITemplateService, BaseWebComponent, IExtensionContext } from 'search-extensibility';
 import * as ReactDOM from "react-dom";
 let globalSettings = (window as any).__globalSettings__;
 import * as DOMPurify from 'dompurify';
-import ITemplateService from '../../services/TemplateService/ITemplateService';
 
 /**
  * Document card props. These properties are retrieved from the web component attributes. They must be camel case.

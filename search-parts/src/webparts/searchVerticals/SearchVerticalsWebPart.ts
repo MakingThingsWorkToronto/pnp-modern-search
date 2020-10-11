@@ -10,15 +10,14 @@ import SearchVerticalsContainer from './components/SearchVerticalsContainer/Sear
 import { IDynamicDataCallables, IDynamicDataPropertyDefinition } from '@microsoft/sp-dynamic-data';
 import { SearchComponentType } from '../../models/SearchComponentType';
 import ISearchVerticalSourceData from '../../models/ISearchVerticalSourceData';
-import { ISearchVertical } from '../../models/ISearchVertical';
+import { ISearchVertical, PageOpenBehavior, ITokenService } from 'search-extensibility';
 import IDynamicDataService from '../../services/DynamicDataService/IDynamicDataService';
 import { DynamicDataService } from '../../services/DynamicDataService/DynamicDataService';
 import ISearchResultSourceData from '../../models/ISearchResultSourceData';
 import { DynamicProperty, ThemeProvider, ThemeChangedEventArgs, IReadonlyTheme } from '@microsoft/sp-component-base';
 import { cloneDeep, isEqual, find } from '@microsoft/sp-lodash-subset';
 import { Placeholder } from '@pnp/spfx-controls-react/lib/Placeholder';
-import { PageOpenBehavior } from '../../helpers/UrlHelper';
-import { TokenService, ITokenService } from '../../services/TokenService';
+import { TokenService } from '../../services/TokenService/TokenService';
 import { TextField, ITextFieldProps, Dropdown, IDropdownProps } from 'office-ui-fabric-react';
 import PnPTelemetry from "@pnp/telemetry-js";
 
@@ -412,12 +411,16 @@ export default class SearchVerticalsWebPart extends BaseClientSideWebPart<ISearc
     }
 
     private initializeProperties() {
-
+/*
         this.properties.verticals = this.properties.verticals ? this.properties.verticals : [
                                                                                                 {
                                                                                                     key: "64db0487-0b73-4ffa-b250-d7869d85b7fe",
-                                                                                                    queryTemplate: "{searchTerms}",
-                                                                                                    resultSourceId: "78b793ce-7956-4669-aa3b-451fc5defebf",
+                                                                                                    configuration: {
+                                                                                                        queryTemplate: "{searchTerms}",
+                                                                                                        params : {
+                                                                                                            resultSourceId: "78b793ce-7956-4669-aa3b-451fc5defebf",
+                                                                                                        }
+                                                                                                    },
                                                                                                     tabName: "Videos",
                                                                                                     iconName : "Video",
                                                                                                     openBehavior: PageOpenBehavior.NewTab,
@@ -426,8 +429,12 @@ export default class SearchVerticalsWebPart extends BaseClientSideWebPart<ISearc
                                                                                                 },
                                                                                                 {
                                                                                                     key: "afb855dc-7808-4366-a320-4a73be69a979",
-                                                                                                    queryTemplate: "{searchTerms}",
-                                                                                                    resultSourceId: "b09a7990-05ea-4af9-81ef-edfab16c4e31",
+                                                                                                    configuration: {
+                                                                                                        queryTemplate: "{searchTerms}",
+                                                                                                        params : {
+                                                                                                            resultSourceId: "b09a7990-05ea-4af9-81ef-edfab16c4e31",
+                                                                                                        }
+                                                                                                    },
                                                                                                     tabName: "People",
                                                                                                     iconName : "People",
                                                                                                     openBehavior: PageOpenBehavior.NewTab,
@@ -436,8 +443,12 @@ export default class SearchVerticalsWebPart extends BaseClientSideWebPart<ISearc
                                                                                                 },
                                                                                                 {
                                                                                                     key: "9da0e1d9-4765-42ff-b562-cf7796d408f6",
-                                                                                                    queryTemplate: "{searchTerms}",
-                                                                                                    resultSourceId: "ba63bbae-fa9c-42c0-b027-9a878f16557c",
+                                                                                                    configuration: {
+                                                                                                        queryTemplate: "{searchTerms}",
+                                                                                                        params : {
+                                                                                                            resultSourceId: "ba63bbae-fa9c-42c0-b027-9a878f16557c",
+                                                                                                        }
+                                                                                                    },
                                                                                                     tabName: "Recently changed items",
                                                                                                     iconName: "Documentation",
                                                                                                     openBehavior: PageOpenBehavior.NewTab,
@@ -445,6 +456,7 @@ export default class SearchVerticalsWebPart extends BaseClientSideWebPart<ISearc
                                                                                                     linkUrl: ''
                                                                                                 }
                                                                                             ];
+    */
     }
 
     /**

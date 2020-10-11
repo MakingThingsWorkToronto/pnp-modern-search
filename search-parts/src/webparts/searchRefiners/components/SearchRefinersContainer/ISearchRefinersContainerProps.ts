@@ -1,8 +1,7 @@
 import { IRefinementResult, IRefinementFilter, IRefinerConfiguration, RefinersLayoutOption } from "search-extensibility";
 import { DisplayMode } from "@microsoft/sp-core-library";
-import { IUserService } from 'search-extensibility';
+import { ITemplateService, IUserService } from 'search-extensibility';
 import { IReadonlyTheme } from "@microsoft/sp-component-base";
-import ITemplateService from "../../../../services/TemplateService/ITemplateService";
 
 export interface ISearchRefinersContainerProps {
   /**

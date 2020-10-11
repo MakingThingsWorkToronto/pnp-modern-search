@@ -1,5 +1,4 @@
-import { IRefinementResult, IPaginationInformation, ISearchVerticalInformation, IRefinementFilter } from "search-extensibility";
-import { ISearchServiceConfiguration } from "./ISearchServiceConfiguration";
+import { ISearchServiceConfiguration, IRefinementResult, IPaginationInformation, ISearchVerticalInformation, IRefinementFilter } from "search-extensibility";
 
 /**
  * Represents the data exposed by a search results Web Part for dynamic data connection

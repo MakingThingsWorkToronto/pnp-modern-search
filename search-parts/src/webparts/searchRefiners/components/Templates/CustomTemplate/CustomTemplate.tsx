@@ -13,12 +13,11 @@ import styles from './CustomTemplate.module.scss';
 import update from 'immutability-helper';
 
 // Interface
-import { IRefinementValue, RefinementOperator } from 'search-extensibility';
+import { ITemplateService, IRefinementValue, RefinementOperator } from 'search-extensibility';
 import { IRefinerProps, IRefinerState } from 'search-extensibility';
 import { CssHelper } from '../../../../../helpers/CssHelper';
 import SearchTemplate from '../../../../../controls/SearchTemplate/SearchTemplate';
 import ISearchRefinersTemplateContext from './ISearchRefinersTemplateContext';
-import ITemplateService from '../../../../../services/TemplateService/ITemplateService';
 
 export interface CustomTemplateProps extends IRefinerProps {
   templateContext: ISearchRefinersTemplateContext;

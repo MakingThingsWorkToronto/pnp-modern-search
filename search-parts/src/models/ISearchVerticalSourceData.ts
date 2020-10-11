@@ -1,4 +1,4 @@
-import { ISearchVertical } from "./ISearchVertical";
+import { ISearchVertical } from "search-extensibility";
 
 interface ISearchVerticalSourceData {
     /**

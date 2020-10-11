@@ -1,4 +1,4 @@
-enum ResultsLayoutOption {
+export enum ResultsLayoutOption {
     SimpleList = 0,
     DetailsList = 3,
     Tiles = 1,
@@ -7,5 +7,3 @@ enum ResultsLayoutOption {
     Custom = 2,
     Debug = 6
 }
-
-export default ResultsLayoutOption;

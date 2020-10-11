@@ -4,7 +4,7 @@ import { Pivot, PivotItem, IPivotItemProps } from 'office-ui-fabric-react/lib/co
 import ISearchVerticalsContainerState from './ISearchVerticalsContainerState';
 import { ITheme } from '@uifabric/styling';
 import styles from './SearchVerticalsContainer.module.scss';
-import { PageOpenBehavior } from '../../../../helpers/UrlHelper';
+import { PageOpenBehavior } from 'search-extensibility';
 import { Icon, GlobalSettings } from 'office-ui-fabric-react';
 
 export default class SearchVerticalsContainer extends React.Component<ISearchVerticalsContainerProps, ISearchVerticalsContainerState> {

@@ -1,18 +1,27 @@
-import { ISearchResults, ISearchVerticalInformation, IRefinementFilter } from 'search-extensibility';
-import { ISearchServiceConfiguration } from '../../models/ISearchServiceConfiguration';
-import { ISearchVertical } from '../../models/ISearchVertical';
-import { ISearchContext, IManagedPropertyInfo } from 'search-extensibility';
-import { ISharePointSearch } from './ISharePointSearch';
-import ITemplateService from '../TemplateService/ITemplateService';
+import { ISearchResults, ISearchVerticalInformation, ISearchParams, IExtensionInstance } from '..';
+import { ISearchServiceConfiguration } from './ISearchServiceConfiguration';
+import { ISearchVertical } from './ISearchVertical';
+import { ISearchContext, IManagedPropertyInfo } from '..';
+import { ITemplateService } from './ITemplateService';
 import { IPropertyPaneGroup } from "@microsoft/sp-property-pane";
+import { ICommonSearchProps } from './ICommonSearchProps';
+import { ISearchServiceInitializer } from './ISearchServiceInitializer';
 
-interface ISearchService extends ISearchServiceConfiguration, ISearchContext {
+export interface ISearchService extends ISearchServiceConfiguration, ISearchContext, IExtensionInstance {
+
+    useOldIcons : boolean;
+
+    /**
+     * Initialize the search service
+     * @param config the intializer configuration to setup the service
+     */
+    init(config: ISearchServiceInitializer) : Promise<void>;
 
     /**
      * Perfoms a search query.
      * @param query ISearchResults object. Use the 'RelevantResults' property to acces results proeprties (returned as key/value pair object => item.[<Managed property name>])
      */
-    search(kqlQuery:string, searchParams:ISharePointSearch) : Promise<ISearchResults>;
+    search(searchParams:ISearchParams) : Promise<ISearchResults>;
 
     /**
      * Retrieves search query suggestions
@@ -42,7 +51,7 @@ interface ISearchService extends ISearchServiceConfiguration, ISearchContext {
      * @param searchVerticalsConfiguration the search verticals configuration
      * @param enableQueryRules enable query rules or not
      */
-    getSearchVerticalCounts(queryText: string, searchVerticals: ISearchVertical[], enableQueryRules: boolean): Promise<ISearchVerticalInformation[]>;
+    getSearchVerticalCounts(queryText: string, searchVerticals: ISearchVertical[]): Promise<ISearchVerticalInformation[]>;
 
     /**
      * Gets all available languages for the search query
@@ -50,16 +59,13 @@ interface ISearchService extends ISearchServiceConfiguration, ISearchContext {
     getAvailableQueryLanguages(): Promise<any[]>;
 
     /**
-     * Initializes the template service within the search service
-     * @param svc the template service
-     */
-    initializeTemplateService(svc: ITemplateService) : void;
-
-    /**
      * Initializes the property pane for the search service
      */
-    getPropertyPane() : Promise<IPropertyPaneGroup>;
+    getPropertyPane(props: ICommonSearchProps) : IPropertyPaneGroup;
+    
+    /**
+     * Return unique hash for the current search service
+     */
+    getHashKey() : string;
     
 }
-
- export default ISearchService;

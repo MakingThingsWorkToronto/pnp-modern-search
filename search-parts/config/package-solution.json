@@ -17,7 +17,23 @@
         "webApiPermissionRequests": [
             {
               "resource": "Microsoft Graph",
-              "scope": "User.ReadBasic.All"
+              "scope": "Mail.Read"
+            },
+            {
+              "resource": "Microsoft Graph",
+              "scope": "Files.Read.All"
+            },
+            {
+              "resource": "Microsoft Graph",
+              "scope": "Files.ReadWrite.All"
+            },
+            {
+              "resource": "Microsoft Graph",
+              "scope": "Calendars.Read"
+            },
+            {
+              "resource": "Microsoft Graph",
+              "scope": "ExternalItem.Read.All"
             }
           ]
     },

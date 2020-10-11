@@ -1,7 +1,5 @@
 import { BaseTemplateService,IComponentFieldsConfiguration} from './BaseTemplateService';
 import { SPHttpClient, SPHttpClientResponse } from '@microsoft/sp-http';
-import ISearchService from '../SearchService/ISearchService';
-import ResultsLayoutOption from '../../models/ResultsLayoutOption';
 import { ISearchResultsWebPartProps } from '../../webparts/searchResults/ISearchResultsWebPartProps';
 import { IPropertyPaneField, PropertyPaneToggle, PropertyPaneSlider } from '@microsoft/sp-property-pane';
 import { IDetailsListColumnConfiguration } from '../../components/search-results/DetailsListComponent';
@@ -14,14 +12,14 @@ import { ISliderOptions } from '../../components/search-results/SliderComponent'
 import { cloneDeep } from '@microsoft/sp-lodash-subset';
 import { WebPartContext } from "@microsoft/sp-webpart-base";
 import { PropertyPaneChoiceGroup } from "@microsoft/sp-property-pane";
-import { ITimeZoneBias, IExtensibilityService, IEditorLibrary } from "search-extensibility";
+import { ResultsLayoutOption, ISearchService, ITimeZoneBias, IExtensibilityService, IEditorLibrary } from "search-extensibility";
 
 const PEOPLE_RESULT_SOURCEID = 'b09a7990-05ea-4af9-81ef-edfab16c4e31';
 
 export default class TemplateService extends BaseTemplateService {
 
+    public searchService: ISearchService;
     private _spHttpClient: SPHttpClient;
-    private _searchService: ISearchService;
     private _extensibilityService: IExtensibilityService;
     private _templateEditor = null;
 
@@ -34,7 +32,7 @@ export default class TemplateService extends BaseTemplateService {
 
         super(ctx, searchService);
 
-        this._searchService = searchService;
+        this.searchService = searchService;
         this._extensibilityService = extensibilityService;
         this._spHttpClient = spHttpClient;
         this.CurrentLocale = locale;
@@ -209,7 +207,7 @@ export default class TemplateService extends BaseTemplateService {
                                         onUpdateAvailableProperties(options);
                                     },
                                     availableProperties: this._availableManagedProperties ? this._availableManagedProperties : [],
-                                    searchService: this._searchService,
+                                    searchService: this.searchService,
                                     validateSortable: false,
                                     onCustomFieldValidation: onCustomFieldValidation
                                 })
@@ -358,7 +356,7 @@ export default class TemplateService extends BaseTemplateService {
                                         onUpdateAvailableProperties(options);
                                     },
                                     availableProperties: this._availableManagedProperties ? this._availableManagedProperties : [],
-                                    searchService: this._searchService,
+                                    searchService: this.searchService,
                                     validateSortable: false,
                                     onCustomFieldValidation: onCustomFieldValidation
                                 })
@@ -523,7 +521,7 @@ export default class TemplateService extends BaseTemplateService {
                                         onUpdateAvailableProperties(options);
                                     },
                                     availableProperties: this._availableManagedProperties ? this._availableManagedProperties : [],
-                                    searchService: this._searchService,
+                                    searchService: this.searchService,
                                     validateSortable: false,
                                     onCustomFieldValidation: onCustomFieldValidation
                                 })
@@ -567,13 +565,12 @@ export default class TemplateService extends BaseTemplateService {
 
     private _ensureRequiredSelectedProperties(requiredProperties: string[], wpProperties: ISearchResultsWebPartProps): void {
 
-        let selectedProperties = wpProperties.selectedProperties.split(',');
         requiredProperties.map(property => {
             if (wpProperties.selectedProperties.indexOf(property) === -1) {
-                selectedProperties.push(property);
-                wpProperties.selectedProperties = selectedProperties.join(',');
+                wpProperties.selectedProperties.push(property);
             }
         });       
+        
     }
 
     public async loadPropertyPaneResources() : Promise<void> {

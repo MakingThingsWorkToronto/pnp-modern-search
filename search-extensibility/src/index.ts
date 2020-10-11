@@ -42,3 +42,16 @@ export { ISearchManagedPropertiesProps } from './models/editors/ISearchManagedPr
 export { IEditorLibrary, BasePropertyPaneExtensibilityEditor,  
     BasePropertyPaneRefinerEditor, BaseSearchManagedProperties,  
     BasePropertyPaneSearchManagedProperties, BaseTemplateValueFieldEditor } from './models/editors/IEditorLibrary';
+export { ISearchServiceConfiguration } from './models/ISearchServiceConfiguration';
+export { ISearchService } from './models/ISearchService';
+export { ICommonSearchProps } from './models/ICommonSearchProps';
+export { ISearchVertical } from './models/ISearchVertical';
+export { ISortableFieldConfiguration, ISortFieldConfiguration, ISortFieldDirection } from './models/ISortFieldConfiguration';
+export { PageOpenBehavior } from './models/PageOpenBehavior';
+export { QueryPathBehavior } from './models/QueryPathBehavior';
+export { ResultsLayoutOption } from './models/ResultsLayoutOption';
+export { ITemplateParameters } from './models/ITemplateParameters';
+export { ISearchResultType, ResultTypeOperator } from './models/ISearchResultType';
+export { ITemplateService } from './models/ITemplateService';
+export { ITokenService } from './models/ITokenService';
+export { ISearchServiceInitializer } from './models/ISearchServiceInitializer';

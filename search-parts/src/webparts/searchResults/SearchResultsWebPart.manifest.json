@@ -26,6 +26,7 @@
         "officeFabricIconFontName": "SearchAndApps",
         "properties": {
             "queryKeywords": "",
+            "dynamicKeywords": "",
             "queryTemplate": "{searchTerms}",
             "sortList": [{
                     "sortField": "Created",

@@ -8,7 +8,7 @@ import { Shimmer, ShimmerElementType as ElemType, ShimmerElementsGroup } from 'o
 import { LogLevel } from '@pnp/logging';
 import Logger from '../../../../services/LogService/LogService';
 import * as strings from 'SearchResultsWebPartStrings';
-import { IRefinementValue, IRefinementResult, ISearchResult, ISearchResults } from 'search-extensibility';
+import { ISortFieldConfiguration, ISortFieldDirection, ResultsLayoutOption, IRefinementValue, IRefinementResult, ISearchResult, ISearchResults } from 'search-extensibility';
 import { Overlay } from 'office-ui-fabric-react/lib/Overlay';
 import { DisplayMode, Guid } from '@microsoft/sp-core-library';
 import { WebPartTitle } from "@pnp/spfx-controls-react/lib/WebPartTitle";
@@ -24,9 +24,6 @@ import ISearchResultsTemplateContext from './ISearchResultsTemplateContext';
 import * as _ from '@microsoft/sp-lodash-subset';
 import { isEqual } from '@microsoft/sp-lodash-subset';
 import { IReadonlyTheme } from '@microsoft/sp-component-base';
-import { ITheme } from '@uifabric/styling';
-import ResultsLayoutOption from '../../../../models/ResultsLayoutOption';
-import { ISortFieldConfiguration, ISortFieldDirection } from '../../../../models/ISortFieldConfiguration';
 
 declare var System: any;
 
@@ -36,7 +33,7 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
 
     private _searchWpRef: HTMLElement;
     private _defaultSortingValues: {
-        sortDirection: SortDirection;
+        sortDirection: ISortFieldDirection;
         sortField: string;
     };
 
@@ -124,7 +121,7 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
 
             const sortPanel = <SortPanel
                                 onUpdateSort={this._onUpdateSort}
-                                sortableFieldsConfiguration={this.props.sortableFields}
+                                sortableFieldsConfiguration={this.props.config.sortableFields}
                                 sortDirection={this.state.sortDirection}
                                 sortField={this.state.sortField} />;
 
@@ -149,7 +146,7 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
                     itemsCountPerPage: this.props.pagingSettings.itemsCountPerPage
                 },
                 instanceId: this.props.instanceId,
-                keywords: this.props.queryKeywords,
+                keywords: this.props.config.queryKeywords,
                 showResultsCount: this.props.showResultsCount,
                 siteUrl: this.props.siteServerRelativeUrl,
                 webUrl: this.props.webServerRelativeUrl,
@@ -242,7 +239,7 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
     public async componentDidMount() {
 
         // Don't perform search if there are no keywords
-        if (this.props.queryKeywords) {
+        if (this.props.config.queryKeywords) {
             try {
 
                 Logger.write("[MSWP.SearchResultsContainer.componentDidMount()]: Before results loaded render.");
@@ -303,14 +300,15 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
         if (!isEqual(this.props, prevProps)) {
             executeSearch = true;
 
-            const lastSelectedProperties = (prevProps.searchService.selectedProperties) ? prevProps.searchService.selectedProperties.join(',') : undefined;
+            const lastSelectedProperties = (prevProps.searchService.config.selectedProperties) ? prevProps.searchService.config.selectedProperties.join(',') : undefined;
             const lastRefinementFilters = (prevProps.searchService.refinementFilters) ? prevProps.searchService.refinementFilters.join(',') : undefined;
-            const lastQuery = prevProps.queryKeywords + prevProps.searchService.queryTemplate + lastSelectedProperties + prevProps.searchService.resultSourceId + lastRefinementFilters;
-            const nextSelectedProperties = (this.props.searchService.selectedProperties) ? this.props.searchService.selectedProperties.join(',') : undefined;
-            const nextRefinementFilters = (this.props.searchService.refinementFilters) ? this.props.searchService.refinementFilters.join(',') : undefined;
-            const query = this.props.queryKeywords + this.props.searchService.queryTemplate + nextSelectedProperties + this.props.searchService.resultSourceId + nextRefinementFilters;
+            const lastQuery = prevProps.config.queryKeywords + prevProps.searchService.config.queryTemplate + lastSelectedProperties + prevProps.searchService.getHashKey() + lastRefinementFilters;
 
-            const isVerticalSwitch = (this.props.searchService.queryTemplate + this.props.searchService.resultSourceId) !== (prevProps.searchService.queryTemplate + prevProps.searchService.resultSourceId);
+            const nextSelectedProperties = (this.props.searchService.config.selectedProperties) ? this.props.searchService.config.selectedProperties.join(',') : undefined;
+            const nextRefinementFilters = (this.props.searchService.refinementFilters) ? this.props.searchService.refinementFilters.join(',') : undefined;
+            const query = this.props.config.queryKeywords + this.props.searchService.config.queryTemplate + nextSelectedProperties + this.props.searchService.getHashKey() + nextRefinementFilters;
+
+            const isVerticalSwitch = (this.props.searchService.config.queryTemplate + this.props.searchService.getHashKey()) !== (prevProps.searchService.config.queryTemplate + prevProps.searchService.getHashKey());
 
             this._defaultSortingValues = this._getDefaultSortingValues();
 
@@ -339,7 +337,7 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
         if (executeSearch) {
 
             // Don't perform search is there is no keywords
-            if (this.props.queryKeywords) {
+            if (this.props.config.queryKeywords) {
                 try {
 
                     Logger.write("[MSWP.SearchResultsContainer.componentDidUpdate()]: clear selected filters on a new query or refiners render.");
@@ -358,9 +356,9 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
                     if (resetSorting) {
                         // Get back to initial values
                         if (this._defaultSortingValues.sortField) {
-                            this.props.searchService.sortList = [{ Property: this._defaultSortingValues.sortField, Direction: this._defaultSortingValues.sortDirection }];
+                            this.props.searchService.config.sortList = [{ sortField: this._defaultSortingValues.sortField, sortDirection: this._defaultSortingValues.sortDirection }];
                         } else {
-                            this.props.searchService.sortList = this._convertToSortList(this.props.sortList);
+                            this.props.searchService.config.sortList = this.props.config.sortList;
                         }
                     }
 
@@ -459,7 +457,7 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
      * Callback function to apply new sort configuration coming from the sort panel child component
      * @param newFilters The new filters to apply
      */
-    private async _onUpdateSort(sortDirection: SortDirection, sortField?: string) {
+    private async _onUpdateSort(sortDirection: ISortFieldDirection, sortField?: string) {
 
         if (sortField) {
             Logger.write("[MSWP.SearchResultsContainer._onUpdateSort()]: on update sort render.");
@@ -472,7 +470,7 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
                 errorMessage: null
             });
 
-            this.props.searchService.sortList = [{ Property: sortField, Direction: sortDirection }];
+            this.props.searchService.config.sortList = [{ sortField: sortField, sortDirection: sortDirection }];
 
             try {
 
@@ -797,11 +795,11 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
     private _getDefaultSortingValues() {
         let sortField = null;
         let sortDirection = null;
-        if (this.props.sortList && this.props.sortList.length > 0
-            && this.props.sortableFields.length > 0
-            && this.props.sortList[0].sortField === this.props.sortableFields[0].sortField) {
-            sortField = this.props.sortList[0].sortField;
-            sortDirection = this.props.sortableFields[0].sortDirection === ISortFieldDirection.Ascending
+        if (this.props.config.sortList && this.props.config.sortList.length > 0
+            && this.props.config.sortableFields.length > 0
+            && this.props.config.sortList[0].sortField === this.props.config.sortableFields[0].sortField) {
+            sortField = this.props.config.sortList[0].sortField;
+            sortDirection = this.props.config.sortableFields[0].sortDirection === ISortFieldDirection.Ascending
                 ? SortDirection.Ascending : SortDirection.Descending;
         }
         return {
@@ -820,10 +818,9 @@ export default class SearchResultsContainer extends React.Component<ISearchResul
         Logger.write("[MSWP.SearchResultsContainer._getSearchResults()]: Retrieving Search Results.");
 
         // Get search results
-        const searchResults = await props.searchService.search(props.queryKeywords, {
+        const searchResults = await props.searchService.search({
             pageNumber: pageNumber, 
-            useOldSPIcons: this.props.templateService.UseOldSPIcons,
-            clientType: "SharePoint"
+            kqlQuery: props.config.queryKeywords
         });
 
         // Translates taxonomy refiners and result values by using terms ID if applicable
