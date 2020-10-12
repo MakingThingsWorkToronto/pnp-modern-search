@@ -5,9 +5,13 @@ import { ITokenService, ITemplateService, ISortFieldConfiguration, ISortFieldDir
     ICommonSearchProps, ISearchServiceConfiguration, ISearchVertical, 
     IManagedPropertyInfo, IRefinementFilter, IRefinerConfiguration, ISearchResults, 
     ISearchVerticalInformation, RefinerSortDirection, RefinersSortOption, IExtensionContext, ExtensionTypes, ISearchServiceInitializer, ISearchParams } from 'search-extensibility';
-import { IGraphSearchService } from './IGraphSearchService';
-import { IPropertyPaneGroup } from '@microsoft/sp-property-pane';
+import { IGraphSearchService,IGraphContentSource } from './IGraphSearchService';
+import { IPropertyPaneGroup, PropertyPaneToggle } from '@microsoft/sp-property-pane';
 import { ISearchResultsWebPartProps } from '../../webparts/searchResults/ISearchResultsWebPartProps';
+import { PropertyFieldMultiSelect } from '@pnp/spfx-property-controls/lib/PropertyFieldMultiSelect';
+import { PropertyFieldCollectionData, CustomCollectionFieldType } from '@pnp/spfx-property-controls/lib/PropertyFieldCollectionData';
+import { isEmpty } from '@microsoft/sp-lodash-subset';
+import { TokenService } from '../TokenService/TokenService';
 
 export enum GraphSearchEntityTypes {
     message = "message",
@@ -27,7 +31,7 @@ export class GraphSearchService implements IGraphSearchService {
 
     public entityTypes:string[];
     public enableTopResults: boolean;
-    public contentSources:string[];
+    public contentSources : IGraphContentSource[];
     public config: ICommonSearchProps;
 
     public resultsCount: number;
@@ -51,7 +55,9 @@ export class GraphSearchService implements IGraphSearchService {
         }
     ];
 
-    public constructor() {}
+    public constructor() {
+        this._configureDefaultParams();
+    }
     
     public async init(config: ISearchServiceInitializer) : Promise<void> {
         
@@ -67,56 +73,54 @@ export class GraphSearchService implements IGraphSearchService {
         const page : number = typeof p.pageNumber === "number" ? p.pageNumber : 1;
         const startRow : number = (page-1)* this.resultsCount;
         const client = await this._webPartContext.msGraphClientFactory.getClient();
-        
-        const appliedRefiners = !this.refinementFilters || this.refinementFilters.length === 0
-                ? []
-                : this.refinementFilters.map((value:IRefinementFilter)=>{
-                    return `${value.FilterName}:"${value.Values.join(",")}"`;
-                });
+        const request = {
+            requests: [
+                {
+                    entityTypes: this.entityTypes,
+                    query: {
+                        queryString: p.kqlQuery // + " " + await this._tokenService.replaceQueryVariables(this.config.queryTemplate)
+                    },
+                    from: startRow,
+                    size: this.resultsCount,
+                    fields: this.config.selectedProperties
+                } as any
+            ]
+        };
 
-        const requestRefiners = !this.refiners || this.refiners.length === 0 
-                ? [] 
-                : this.refiners.map((value:IRefinerConfiguration,index:number,array:IRefinerConfiguration[]) => {
-                        return {
-                            field: value.refinerName,
-                            size: 50000, //value.refinerSize,
-                            bucketDefinition: {
-                                sortBy: (value.refinerSortType === RefinersSortOption.ByNumberOfResults ? "count" : "keyAsString"),
-                                isDescending: (value.refinerSortDirection === RefinerSortDirection.Descending ? "true" : "false"),
-                                minimumCount: 0
-                            }
-                        };
-                    });
-
-        const sortProps = !this.config.sortList || this.config.sortList.length === 0
-                ? []
-                : this.config.sortList.map((value: ISortFieldConfiguration)=>{
+        if(this.config.sortList && this.config.sortList.length > 0) {
+            request.requests[0].sortableProperties = this.config.sortList.map((value: ISortFieldConfiguration)=>{
                     return {
                         name: value.sortField,
                         isDescending: value.sortDirection === ISortFieldDirection.Descending  ? "true" : "false"
                     };
                 });
+        }
 
-        const request = {
-            requests: [
-                {
-                    contentSources: this.contentSources,
-                    entityTypes: this.entityTypes,
-                    query: {
-                        queryString: p.kqlQuery + " " + this.config.queryTemplate
-                    },
-                    aggregations: requestRefiners,
-                    aggregationFilters: appliedRefiners,
-                    sortableProperties: sortProps,
-                    from: startRow,
-                    size: this.resultsCount,
-                    fields: this.config.selectedProperties
-                }
-            ]
-        };
+        if(this.contentSources && this.contentSources.length>0) {
+            request.requests[0].contentSources = this.contentSources.map((c)=>{return c.name;});
+        }
+
+        if(this.refinementFilters && this.refinementFilters.length > 0) {
+            request.requests[0].aggregationFilters = this.refinementFilters.map((value:IRefinementFilter)=>{
+                return `${value.FilterName}:"${value.Values.join(",")}"`;
+            });
+        }
+
+        if(this.refiners && this.refiners.length > 0) {
+            request.requests[0].aggregations = this.refiners.map((value:IRefinerConfiguration,index:number,array:IRefinerConfiguration[]) => {
+                return {
+                    field: value.refinerName,
+                    size: 50000, //value.refinerSize,
+                    bucketDefinition: {
+                        sortBy: (value.refinerSortType === RefinersSortOption.ByNumberOfResults ? "count" : "keyAsString"),
+                        isDescending: (value.refinerSortDirection === RefinerSortDirection.Descending ? "true" : "false"),
+                        minimumCount: 0
+                    }
+                };
+            });
+        }
 
         const response = await client.api("search/query").version("beta").post(request);
-
         const results = this._parseResponse(response);
         results.QueryKeywords = p.kqlQuery;
         results.PaginationInformation.CurrentPage = page;
@@ -213,12 +217,47 @@ export class GraphSearchService implements IGraphSearchService {
     public async getAvailableQueryLanguages(): Promise<any[]> {
         throw new Error("Method not implemented.");
     }
+
+    private _configureDefaultParams(){
+        if(isEmpty(this.entityTypes) || this.entityTypes.length === 0) this.entityTypes = [ GraphSearchEntityTypes.listItem ];
+        if(!(typeof this.enableTopResults === "boolean")) this.enableTopResults = true;
+        if(!this.contentSources) this.contentSources = [];
+    }
   
     public getPropertyPane(props: ISearchResultsWebPartProps) : IPropertyPaneGroup {
-        
+        const allEntityTypes = this.getEntityTypes();
         return {
             groupName: "Graph",
-            groupFields: [],
+            groupFields: [
+                PropertyFieldMultiSelect("params.entityTypes", {
+                    key: "params.entityTypes",
+                    label: "Entity Types",
+                    options: allEntityTypes.map((t)=>{ return {key: t, text: t};}),
+                    selectedKeys: props.params.entityTypes || [ GraphSearchEntityTypes.listItem ]
+                }),
+                PropertyPaneToggle("params.enableTopResults", {
+                    key: "params.enableTopResults",
+                    label: "Enable Top Results",
+                    checked: props.params.enableTopResults
+                }),
+                PropertyFieldCollectionData("params.contentSources", {
+                    key: "params.contentSources",
+                    label: "Content Sources",
+                    panelHeader: "Content Sources are only supported for external items.",
+                    manageBtnLabel: "Content Sources",
+                    value: props.params.contentSources,
+                    enableSorting: true,
+                    fields : [
+                        {
+                            id: "name",
+                            title: "Name",
+                            type: CustomCollectionFieldType.string,
+                            placeholder: "Enter Content Source Name",
+                            required: true
+                        }
+                    ]
+                })
+            ],
             isCollapsed: false
         };
     

@@ -309,6 +309,10 @@ export default class SearchResultsWebPart extends BaseClientSideWebPart<ISearchR
         this._searchService.refiners = refinerConfiguration;
         this._searchService.queryModifier = queryModifier;
 
+        Object.keys(config.params).forEach((key)=> {
+            this._searchService[key] = config.params[key];
+        });
+
         const isValueConnected = this.areKeywordsConnected();
 
         this._searchContainer = React.createElement(

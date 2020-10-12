@@ -1,5 +1,9 @@
 import { ISearchService } from "search-extensibility";
 
+export interface IGraphContentSource {
+    name: string;
+}
+
 export interface IGraphSearchService extends ISearchService {
     
     /**
@@ -10,7 +14,7 @@ export interface IGraphSearchService extends ISearchService {
     /**
      * Content source id
      */
-    contentSources:string[];
+    contentSources:IGraphContentSource[];
 
     /**
      * Enable the top results to be returned
