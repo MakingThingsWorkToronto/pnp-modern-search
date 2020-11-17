@@ -170,7 +170,7 @@ let baseConfig = {
     port: 4321,
     disableHostCheck: true,
     historyApiFallback: true,
-    open: true,
+    open: false,
     openPage: host + "/temp/workbench.html",
     stats: {
       preset: "errors-only",
@@ -204,6 +204,28 @@ const createConfig = function () {
   let originalWebpackConfig = require("./temp/_webpack_config.json");
   baseConfig.externals = originalWebpackConfig.externals;
   baseConfig.output = originalWebpackConfig.output;
+
+  // Same config as the gulpfile.js
+  baseConfig.resolve.alias = { handlebars: 'handlebars/dist/handlebars.min.js' };
+
+  baseConfig.node = {
+    fs: 'empty'
+  }
+
+  baseConfig.module.rules.push(
+    { 
+      test: /utils\.js$/, 
+      loader: 'unlazy-loader', 
+      include: [
+          /node_modules/,
+      ]
+    }
+  );
+  
+  // Exclude moment.js locale for performance purpose
+  baseConfig.plugins.push(
+    new webpack.IgnorePlugin(/^\.\/locale$/, /moment$/)
+  );
 
   // fix: ".js" entry needs to be ".ts"
   // also replaces the path form /lib/* to /src/*

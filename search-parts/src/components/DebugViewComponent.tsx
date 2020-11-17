@@ -1,7 +1,7 @@
 import * as React from 'react';
-import * as ReactDOM from 'react-dom';
 import { Suspense } from 'react';
-import { BaseWebComponent } from './BaseWebComponent';
+import { BaseWebComponent } from '@pnp/modern-search-extensibility';
+import * as ReactDOM from 'react-dom';
 const AceEditor = React.lazy(() => import('react-ace'));
 
 export interface IDebugViewProps {
@@ -9,32 +9,34 @@ export interface IDebugViewProps {
     /**
      * The debug content to display
      */
-    content?: string;
+    content?: {};
 }
 
 export interface IDebugViewState {
 }
 
-export default class DebugView extends React.Component<IDebugViewProps, IDebugViewState> {
+export class DebugView extends React.Component<IDebugViewProps, IDebugViewState> {
     
     public render() {
-        return <Suspense fallback={""}><AceEditor
-            width={ '100%' }
-            mode={ 'json' }
-            theme="textmate"
-            enableLiveAutocompletion={ true }
-            showPrintMargin={ false }
-            showGutter= { true }            
-            value={ this.props.content }
-            highlightActiveLine={ true }
-            readOnly={ true }
-            editorProps={
-                {
-                    $blockScrolling: Infinity,
-                }
-            }					
-            name="CodeView"
-        /></Suspense> ;
+        return <Suspense fallback={""}>
+                    <AceEditor
+                        width={ '100%' }
+                        mode={ 'json' }
+                        theme="textmate"
+                        enableLiveAutocompletion={ false }
+                        showPrintMargin={ false }
+                        showGutter= { true }            
+                        value={ JSON.stringify(this.props.content, null, 2) }
+                        highlightActiveLine={ true }
+                        readOnly={ true }
+                        editorProps={
+                            {
+                                $blockScrolling: Infinity,
+                            }
+                        }					
+                        name="CodeView"
+                    />
+                </Suspense>;
     }
 }
 
@@ -49,7 +51,7 @@ export class DebugViewWebComponent extends BaseWebComponent {
        // Reuse the 'brace' imports from the PnP control instead of reference them explicitly in the debug view
        await import(
           /* webpackChunkName: 'debug-view' */
-          '@pnp/spfx-property-controls/lib/PropertyFieldCodeEditor'
+          '@pnp/spfx-property-controls/lib/propertyFields/codeEditor'
        );
  
        let props = this.resolveAttributes();

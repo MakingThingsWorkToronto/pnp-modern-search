@@ -1,63 +1,46 @@
 declare interface ISearchBoxWebPartStrings {
-  SearchInputPlaceholder: string;
-  SearchBoxQuerySuggestionsSettings: string;
-  SearchBoxEnableQuerySuggestions: string;
-  SearchBoxNewPage: string;
-  SearchBoxSearchInNewPageLabel: string;
-  SearchBoxSearchInNewPageDescription: string;
-  SearchBoxPageUrlLabel: string;
-  SearchBoxUrlErrorMessage: string;
-  SearchBoxQuerySettings: string;
-  SearchBoxSameTabOpenBehavior: string;
-  SearchBoxNewTabOpenBehavior: string;
-  SearchBoxPageOpenBehaviorLabel: string;
-  SearchBoxQueryPathBehaviorLabel: string;
-  SearchBoxUrlFragmentQueryPathBehavior: string;
-  SearchBoxQueryStringQueryPathBehavior: string;
-  SearchBoxQueryStringParameterName: string;
-  SearchBoxQueryParameterNotEmpty: string;
-  SearchBoxQueryNlpSettings: string;
-  SearchBoxQueryNlpSettingsDescription: string;
-  SearchBoxUserQueryNlpLabel: string;
-  SearchBoxServiceUrlLabel: string;
-  SearchBoxServiceUrlDescription: string;
-  SearchBoxServiceUrlErrorMessage: string;
-  SearchBoxUseDebugModeLabel: string;
-  SearchBoxUseStagingEndpoint: string;
-  SearchBoxPlaceholderTextLabel: string;
-  UrlNotResolvedErrorMessage: string;
-  SaveButtonText: string;
-  CancelButtonText: string;
-  DialogButtonLabel: string;
-  DialogButtonText: string;
-  DynamicData: {
-    UseDynamicDataSourceLabel: string;
-    SearchQueryPropertyLabel: string,
-    RawInputValuePropertyLabel: string,
-    EnhancedQueryPropertyLabel: string,
-    DefaultQueryKeywordsPropertyLabel: string;
+  General: {
+    DynamicPropertyDefinition: string;
   },
-  DebugPanel: {
-    HeaderLabel: string;
-    DetectedLanguageLabel: string;
-    RecognizedEntitiesLabel: string;
-    TopScoringIntentNameLabel: string;
-    TopScoringIntentScoreLabel: string;
-    EnhancedQueryLabel: string;
-    AlteredQueryLabel: string;
+  PropertyPane:{
+    SearchBoxSettingsGroup: {
+      GroupName: string;
+      PlaceholderTextLabel: string;
+      SearchInNewPageLabel: string;
+      PageUrlLabel: string;
+      UrlErrorMessage: string;
+      QueryPathBehaviorLabel: string;
+      UrlFragmentQueryPathBehavior: string;
+      QueryStringQueryPathBehavior: string;
+      QueryStringParameterName: string;
+      QueryParameterNotEmpty: string;
+    },
+    AvailableConnectionsGroup: {
+      GroupName: string;
+      UseDynamicDataSourceLabel: string;
+      QueryKeywordsPropertyLabel: string;
+    }
+    QuerySuggestionsGroup: {
+      GroupName: string;
+      EnableQuerySuggestions: string;
+      EditSuggestionProvidersLabel: string;
+      SuggestionProvidersLabel: string;
+      SuggestionProvidersDescription: string;
+      EnabledPropertyLabel: string;
+      ProviderNamePropertyLabel: string;
+      ProviderDescriptionPropertyLabel: string;
+      DefaultSuggestionGroupName: string;
+      NumberOfSuggestionsToShow: string;
+    },
+    InformationPage: {
+      Extensibility: {
+        PanelHeader: string;
+        PanelDescription: string;
+      }
+    }
   },
-  SuggestionProviders: {
-    EditSuggestionProvidersLabel: string;
-    SuggestionProvidersLabel: string;
-    SuggestionProvidersDescription: string;
-    EnabledPropertyLabel: string;
-    ProviderNamePropertyLabel: string;
-    ProviderDescriptionPropertyLabel: string;
-    InlineTemplateContentLabel: string;
-    ExternalUrlLabel: string;
-    InlineTemplateEditPanelTitle: string;
-    DefaultSuggestionGroupName: string;
-    SharePointSuggestionGroupName: string;
+  SearchBox:{
+    DefaultPlaceholder: string;
   }
 }
 

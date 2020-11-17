@@ -1,7 +1,7 @@
 export interface IPreviewContainerProps {
 
    /**
-    * The element URL to display (can be the iframe source URL or a video URL)
+    * The element URL to display (can be the iframe source URL)
     */
    elementUrl: string;
 
@@ -21,25 +21,12 @@ export interface IPreviewContainerProps {
    showPreview: boolean;
 
    /**
-    * The preview type (document or video)
+    * The preview type
     */
    previewType: PreviewType;
 
-   /**
-    * The video props
-    */
-   videoProps?: IVideoPreviewProps;
-}
-
-export interface IVideoPreviewProps {
-
-   /**
-    * Video file extension
-    */
-   fileExtension :string;
 }
 
 export enum PreviewType {
-   Document,
-   Video
+   Document
 }

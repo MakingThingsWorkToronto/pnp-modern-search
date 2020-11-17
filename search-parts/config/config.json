@@ -2,7 +2,7 @@
   "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/config.2.0.schema.json",
   "version": "2.0",
   "bundles": {
-    "search-results-web-part": {
+    "modern-search-results-web-part": {
       "components": [
         {
           "entrypoint": "./lib/webparts/searchResults/SearchResultsWebPart.js",
@@ -10,7 +10,15 @@
         }
       ]
     },
-    "search-box-web-part": {
+    "modern-search-filters-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/searchFilters/SearchFiltersWebPart.js",
+          "manifest": "./src/webparts/searchFilters/SearchFiltersWebPart.manifest.json"
+        }
+      ]
+    },
+    "modern-search-box-web-part": {
       "components": [
         {
           "entrypoint": "./lib/webparts/searchBox/SearchBoxWebPart.js",
@@ -18,15 +26,7 @@
         }
       ]
     },
-    "search-refiners-web-part": {
-      "components": [
-        {
-          "entrypoint": "./lib/webparts/searchRefiners/SearchRefinersWebPart.js",
-          "manifest": "./src/webparts/searchRefiners/SearchRefinersWebPart.manifest.json"
-        }
-      ]
-    },
-    "search-verticals-web-part": {
+    "modern-search-verticals-web-part": {
       "components": [
         {
           "entrypoint": "./lib/webparts/searchVerticals/SearchVerticalsWebPart.js",
@@ -38,10 +38,11 @@
   "externals": {},
   "localizedResources": {
     "SearchResultsWebPartStrings": "lib/webparts/searchResults/loc/{locale}.js",
-    "SearchBoxWebPartStrings": "lib/webparts/searchBox/loc/{locale}.js",
+    "CommonStrings": "lib/loc/{locale}.js",
     "ControlStrings": "node_modules/@pnp/spfx-controls-react/lib/loc/{locale}.js",
     "PropertyControlStrings": "node_modules/@pnp/spfx-property-controls/lib/loc/{locale}.js",
-    "SearchRefinersWebPartStrings": "lib/webparts/searchRefiners/loc/{locale}.js",
+    "SearchFiltersWebPartStrings": "lib/webparts/searchFilters/loc/{locale}.js",
+    "SearchBoxWebPartStrings": "lib/webparts/searchBox/loc/{locale}.js",
     "SearchVerticalsWebPartStrings": "lib/webparts/searchVerticals/loc/{locale}.js"
   }
 }

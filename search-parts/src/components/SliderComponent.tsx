@@ -5,8 +5,12 @@ import 'flickity/dist/flickity.min.css';
 import * as ReactDOM from 'react-dom';
 import * as Handlebars from 'handlebars';
 import { MessageBar, MessageBarType } from 'office-ui-fabric-react/lib/MessageBar';
-import { BaseWebComponent } from './BaseWebComponent';
-import { TemplateService } from '../services/TemplateService/TemplateService';
+import { BaseWebComponent } from '@pnp/modern-search-extensibility';
+import { isEmpty } from "@microsoft/sp-lodash-subset";
+import * as DOMPurify from 'dompurify';
+import { ITemplateService } from '../services/templateService/ITemplateService';
+import { TemplateService } from '../services/templateService/TemplateService';
+import { DomPurifyHelper } from '../helpers/DomPurifyHelper';
 
 export interface ISliderProps {
     options?: any;
@@ -122,26 +126,52 @@ export interface ISliderComponentProps {
     /**
      * Stringified items to render
      */
-    items?: string;
+    items?: { [key:string]: any};
 
     /**
      * Slider options
      */
-    options?: string;
+    options?: ISliderOptions;
+
+    /**
+     * The Handlebars context to inject in slide content (ex: @root)
+     */
+    context?: any;
+
+    /**
+     * The isolated Handlebars namespace 
+     */
+    handlebars: typeof Handlebars;
 }
 
 export interface ISliderComponentState {
 }
 
 export class SliderComponent extends React.Component<ISliderComponentProps, ISliderComponentState> {
+
+    private _domPurify: any;
+
+    public constructor(props: ISliderComponentProps) {
+        super(props);
+
+        this._domPurify = DOMPurify.default;
+
+        this._domPurify.setConfig({
+            WHOLE_DOCUMENT: true
+        });
+
+        this._domPurify.addHook('uponSanitizeElement', DomPurifyHelper.allowCustomComponentsHook);
+        this._domPurify.addHook('uponSanitizeAttribute', DomPurifyHelper.allowCustomAttributesHook); 
+    }
     
     public render() {
 
         try {
         
             // Get item properties
-            const items = this.props.items ? JSON.parse(this.props.items) : [];
-            const sliderOptions = this.props.options ? JSON.parse(this.props.options) as ISliderOptions : {};
+            const items = this.props.items ? this.props.items : [];
+            const sliderOptions = this.props.options ? this.props.options as ISliderOptions : {};
+            const templateContext = !isEmpty(this.props.context) ? this.props.context : null;
 
             let autoPlayValue: any = sliderOptions.autoPlay;
 
@@ -170,26 +200,32 @@ export class SliderComponent extends React.Component<ISliderComponentProps, ISli
                             
                             // Create a temp context with the current so we can use global registered helpers on the current item
                             const tempTemplateContent = `{{#with item as |item|}}${this.props.template.trim()}{{/with}}`;
-                            let template = Handlebars.compile(tempTemplateContent);
+                            
+                            let template = this.props.handlebars.compile(tempTemplateContent);
 
-                            const templateContentValue = template({
-                                item: item
-                            });
+                            const templateContentValue =    template(
+                                                                { 
+                                                                    item: item 
+                                                                }, 
+                                                                { 
+                                                                    data: {
+                                                                        root: {
+                                                                            ...templateContext
+                                                                        }
+                                                                    }
+                                                                }
+                                                            ); 
                             
                             return  <div style={{ position: 'relative' }} key={index}>
-                                        <div dangerouslySetInnerHTML={ { __html : templateContentValue}}></div>    
+                                        <div dangerouslySetInnerHTML={ { __html : this._domPurify.sanitize(templateContentValue)}}></div>    
                                     </div>;               
+                            })
                         }
-                        )}
                     </Slider>
             </div>;
         } catch (error) {
             return <MessageBar messageBarType={MessageBarType.error}>{error}</MessageBar>;
         }
-    }
-
-    public componentDidUpdate(prevState: ISliderComponentState, prevProps: ISliderComponentProps) {
-        TemplateService.initPreviewElements();
     }
 }
 
@@ -202,7 +238,10 @@ export class SliderWebComponent extends BaseWebComponent {
     public connectedCallback() {
  
        let props = this.resolveAttributes();
-       const sliderComponent = <SliderComponent {...props}/>;
+
+       const templateService = this._serviceScope.consume<ITemplateService>(TemplateService.ServiceKey);
+       
+       const sliderComponent = <SliderComponent {...props} template={this.innerHTML} handlebars={templateService.Handlebars}/>;
        ReactDOM.render(sliderComponent, this);
     }    
-}
+ }

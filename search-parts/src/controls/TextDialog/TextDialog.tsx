@@ -1,13 +1,13 @@
 import * as React                               from 'react';
 import { Suspense }                             from 'react';
-import { Dialog, DialogType, DialogFooter } 	from 'office-ui-fabric-react/lib/Dialog';
-import { ButtonType, PrimaryButton } 			from 'office-ui-fabric-react/lib/Button';
+import { Dialog, DialogType, DialogFooter } 	from 'office-ui-fabric-react';
+import { ButtonType, PrimaryButton } 			from 'office-ui-fabric-react';
 import { ITextDialogProps }                  	from './ITextDialogProps';
 import { ITextDialogState }                  	from './ITextDialogState';
 import styles                                   from './TextDialog.module.scss';
 import './AceEditor.module.scss';
-import { TextField } from 'office-ui-fabric-react/lib/TextField';
-import { Icon } from 'office-ui-fabric-react/lib/Icon';
+import { TextField } from 'office-ui-fabric-react';
+import { Icon } from 'office-ui-fabric-react';
 const AceEditor = React.lazy(() => import('react-ace'));
 
 export default class TextDialog extends React.Component<ITextDialogProps, ITextDialogState> {
@@ -103,7 +103,7 @@ export default class TextDialog extends React.Component<ITextDialogProps, ITextD
                             width="600px"
                             mode={ this.props.language ? this.props.language: 'html' }
                             theme="monokai"
-                            enableLiveAutocompletion={ true }
+                            enableLiveAutocompletion={ false }
                             showPrintMargin={ false }
                             showGutter= { true }
                             onChange={ this.onDialogTextChanged.bind(this) }

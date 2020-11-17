@@ -1,16 +1,20 @@
-import * as React from 'react';
-import { Icon, IconType, mergeStyles, ImageFit, ITheme, ImageLoadState } from 'office-ui-fabric-react';
-import { getFileTypeIconProps, FileTypeIconSize, FileIconType } from '@uifabric/file-type-icons';
-import { isEmpty, trimStart } from '@microsoft/sp-lodash-subset';
-import { BaseWebComponent } from './BaseWebComponent';
+ import * as React from 'react';
+import { BaseWebComponent } from '@pnp/modern-search-extensibility';
 import * as ReactDOM from 'react-dom';
+import { Icon, ITheme } from 'office-ui-fabric-react';
 import { IReadonlyTheme } from '@microsoft/sp-component-base';
 
 export interface IIconProps {
-    fileExtension?: string;
-    iconName?: string;
-    size?: FileTypeIconSize;
-    imageUrl?: string;
+
+    /**
+     * The Office UI Fabric icon name
+     */
+    name?: string;
+
+    /**
+     * The icon size
+     */
+    size?: string;
 
     /**
      * The current theme settings
@@ -27,55 +31,10 @@ export interface IIconState {
     errorImage:string;
 }
 
-export class IconComponent extends React.Component<IIconProps, IIconState> {
-
-    constructor(props: IIconProps){
-        super(props);
-        this.state = {
-            errorImage : undefined
-        };
-    }
-
+export class FileIcon extends React.Component<IIconProps, IIconState> {
+    
     public render() {
-        let iconSize: FileTypeIconSize = 32;
-        if (this.props.size && this.props.size > 0) {
-            iconSize = this.props.size;
-        }
-
-        const iconClass = mergeStyles({
-            height: iconSize,
-            width: iconSize,
-            fontSize: iconSize + "px",
-            marginRight: 15,
-            overflow: 'visible'
-        });
-
-        let iconProps;
-        if (!isEmpty(this.props.imageUrl) || this.state.errorImage) {
-            
-            iconProps = { iconType: IconType.Image, imageProps: { src: this.state.errorImage || this.props.imageUrl, imageFit: ImageFit.contain, width: iconSize + 'px', height: iconSize + 'px', onLoadingStateChange: this.onLoadingStateChange.bind(this) } };
-
-        } else if (!isEmpty(this.props.fileExtension)) {
-
-            if (this.props.fileExtension == "IsListItem") {
-                iconProps = getFileTypeIconProps({ type: FileIconType.listItem, size: iconSize, imageFileType: 'svg' });
-            } else if (this.props.fileExtension == "IsContainer") {
-                iconProps = getFileTypeIconProps({ type: FileIconType.folder, size: iconSize, imageFileType: 'svg' });
-            } else {
-                let fileExt = trimStart(this.props.fileExtension.trim(), '.');
-                iconProps = getFileTypeIconProps({ extension: fileExt, size: iconSize });
-            }
-
-        } else if (!isEmpty(this.props.iconName)) {
-            
-            iconProps = { iconName: this.props.iconName };
-
-        } else {
-            
-            iconProps = getFileTypeIconProps({ type: FileIconType.genericFile, size: iconSize, imageFileType: 'svg' });
-            
-        }
-        return <Icon {...iconProps} theme={this.props.themeVariant as ITheme} className={iconClass} />;
+        return <Icon iconName={this.props.name} theme={this.props.themeVariant as ITheme} />;
     }
 
     private onLoadingStateChange(loadState: ImageLoadState) {
@@ -97,10 +56,10 @@ export class IconWebComponent extends BaseWebComponent {
         super(); 
     }
  
-    public connectedCallback() {
+    public async connectedCallback() {
  
        let props = this.resolveAttributes();
-       const iconComponent = <IconComponent {...props}/>;
-       ReactDOM.render(iconComponent, this);
+       const fileIcon = <div style={{ display: 'flex' }}><FileIcon {...props}/></div>;
+       ReactDOM.render(fileIcon, this);
     }    
- }
+}

@@ -1,482 +1,309 @@
-﻿import * as React from 'react';
+import * as React from 'react';
 import * as ReactDom from 'react-dom';
-import { Version, Guid, DisplayMode, UrlQueryParameterCollection } from '@microsoft/sp-core-library';
-import { BaseClientSideWebPart } from "@microsoft/sp-webpart-base";
-import { IPropertyPaneConfiguration, IPropertyPaneField, PropertyPaneDropdown, PropertyPaneToggle, PropertyPaneTextField } from "@microsoft/sp-property-pane";
-import * as strings from 'SearchVerticalsWebPartStrings';
+import { Version, Guid } from '@microsoft/sp-core-library';
+import {
+  IPropertyPaneConfiguration,
+  IPropertyPanePage,
+  IPropertyPaneField
+} from '@microsoft/sp-property-pane';
+import * as commonStrings from 'CommonStrings';
+import * as webPartStrings from 'SearchVerticalsWebPartStrings';
+import { ISearchVerticalsContainerProps } from './components/ISearchVerticalsContainerProps';
 import { ISearchVerticalsWebPartProps } from './ISearchVerticalsWebPartProps';
-import ISearchVerticalsContainerProps from './components/SearchVerticalsContainer/ISearchVerticalsContainerProps';
-import SearchVerticalsContainer from './components/SearchVerticalsContainer/SearchVerticalsContainer';
-import { IDynamicDataCallables, IDynamicDataPropertyDefinition } from '@microsoft/sp-dynamic-data';
-import { SearchComponentType } from '../../models/SearchComponentType';
-import ISearchVerticalSourceData from '../../models/ISearchVerticalSourceData';
-import { ISearchVertical } from '../../models/ISearchVertical';
-import IDynamicDataService from '../../services/DynamicDataService/IDynamicDataService';
-import { DynamicDataService } from '../../services/DynamicDataService/DynamicDataService';
-import ISearchResultSourceData from '../../models/ISearchResultSourceData';
-import { DynamicProperty, ThemeProvider, ThemeChangedEventArgs, IReadonlyTheme } from '@microsoft/sp-component-base';
-import { cloneDeep, isEqual, find } from '@microsoft/sp-lodash-subset';
-import { Placeholder } from '@pnp/spfx-controls-react/lib/Placeholder';
-import { PageOpenBehavior } from '../../helpers/UrlHelper';
-import { TokenService, ITokenService } from '../../services/TokenService';
 import { TextField, ITextFieldProps, Dropdown, IDropdownProps } from 'office-ui-fabric-react';
-import PnPTelemetry from "@pnp/telemetry-js";
+import SearchVerticalsContainer from './components/SearchVerticalsContainer';
+import { ComponentType } from '../../common/ComponentType';
+import { IDataVertical } from '../../models/common/IDataVertical';
+import { IDynamicDataCallables, IDynamicDataPropertyDefinition } from '@microsoft/sp-dynamic-data';
+import { IDataVerticalSourceData } from '../../models/dynamicData/IDataVerticalSourceData';
+import { PageOpenBehavior } from '../../helpers/UrlHelper';
+import { TokenService } from '../../services/tokenService/TokenService';
+import { ITokenService } from '@pnp/modern-search-extensibility';
+import { BaseWebPart } from '../../common/BaseWebPart';
 
-export default class SearchVerticalsWebPart extends BaseClientSideWebPart<ISearchVerticalsWebPartProps> implements IDynamicDataCallables {
+export default class SearchVerticalsWebPart extends BaseWebPart<ISearchVerticalsWebPartProps> implements IDynamicDataCallables {
 
-    private _propertyFieldCollectionData;
-    private _customCollectionFieldType;
-    private _dynamicDataService: IDynamicDataService;
-    private _searchResultSourceData: DynamicProperty<ISearchResultSourceData>;
-    private _selectedVertical: ISearchVertical;
-    private _themeProvider: ThemeProvider;
-    private _themeVariant: IReadonlyTheme;
-    private _tokenService: ITokenService;
+  /**
+   * Dynamically loaded components for property pane
+   */
+  private _propertyFieldCollectionData: any = null;
+  private _customCollectionFieldType: any = null;
 
-    public constructor() {
-        super();
+  /**
+   * The current selected vertical
+   */
+  private _selectedVertical: IDataVertical;
 
-        this.onVerticalSelected = this.onVerticalSelected.bind(this);
+  /**
+   * The token service instance
+   */
+  private tokenService: ITokenService;
+
+  public constructor() {
+    super();
+
+    this.onVerticalSelected = this.onVerticalSelected.bind(this);
+  }
+
+  protected async onInit(): Promise<void> {
+
+    // Initializes Web Part properties
+    this.initializeProperties();
+
+    // Initializes shared services
+    await this.initializeBaseWebPart();
+
+    // Initializes the Web Part instance services
+    this.initializeWebPartServices();
+
+    // Initializes this component as a discoverable dynamic data source
+    this.context.dynamicDataSourceManager.initializeSource(this);
+  }
+
+  public render(): void {
+
+    let renderRootElement: JSX.Element = null;
+
+    renderRootElement = React.createElement(
+      SearchVerticalsContainer,
+      {
+          verticals: this.properties.verticals,
+          webPartTitleProps: {
+          displayMode: this.displayMode,
+          title: this.properties.title,
+          updateProperty: (value: string) => {
+            this.properties.title = value;
+          }
+        },
+        tokenService: this.tokenService,
+        themeVariant: this._themeVariant,
+        onVerticalSelected: this.onVerticalSelected.bind(this)
+      } as ISearchVerticalsContainerProps
+    );
+    
+    ReactDom.render(renderRootElement, this.domElement);
+  }
+
+  public getPropertyDefinitions(): IDynamicDataPropertyDefinition[] {
+    // Use the Web Part title as property title since we don't expose sub properties
+    return [
+       {
+           id: ComponentType.SearchVerticals,
+           title: this.properties.title ? `${this.properties.title} - ${this.instanceId}` : `${webPartStrings.General.WebPartDefaultTitle} - ${this.instanceId}`
+       }
+    ];
+  }  
+
+  public getPropertyValue(propertyId: string) {
+    switch (propertyId) {
+
+      case ComponentType.SearchVerticals:
+            return { 
+              selectedVertical: this._selectedVertical,
+              verticalsConfiguration: this.properties.verticals,
+            } as IDataVerticalSourceData;
+
+      default:
+          throw new Error('Bad property id');
     }
+  }
 
-    public render(): void {
+  protected onPropertyPaneFieldChanged(propertyPath: string) {
+    
+    if (propertyPath.localeCompare('verticals') === 0) {
 
-        let renderElement = null;
-        let defaultVerticalKey: string = null;
-        let searchVerticals: ISearchVertical[] = cloneDeep(this.properties.verticals);
-
-        if (this.properties.verticals.length > 0) {
-
-            // Check if we can find a default vertical to set
-            if (this.properties.defaultVerticalQuerystringParam) {
-                const queryParms: UrlQueryParameterCollection = new UrlQueryParameterCollection(window.location.href.toLowerCase());
-                const defaultQueryVal: string = queryParms.getValue(this.properties.defaultVerticalQuerystringParam.toLowerCase());
-                if (defaultQueryVal) {
-                    const defaultSelected: ISearchVertical = find(this.properties.verticals, v => v.tabName.toLowerCase() == decodeURIComponent(defaultQueryVal));
-                    if (defaultSelected) {
-                        defaultVerticalKey = defaultSelected.key;
-                    }
-                }
-            }
-            else {
-                //if no defaultVerticalQuerystringParam configured - Try to handle default selected based on isLink and current page name
-                const pagename = window.location.pathname.toLowerCase();
-                const defaultSelected: ISearchVertical = find(this.properties.verticals, v => v.isLink && v.linkUrl.toLowerCase().indexOf(pagename) > -1);
-                if (defaultSelected) {
-                    defaultVerticalKey = defaultSelected.key;
-                }
-            }
-
-            let searchResultSourceData: ISearchResultSourceData = undefined;
-            // If the dynamic property exists, it means the Web Part ins connected to a search results Web Part
-            if (this._searchResultSourceData) {
-                searchResultSourceData = this._searchResultSourceData.tryGetValue();
-
-                if (searchResultSourceData) {
-
-                    if (searchResultSourceData.verticalsInformation) {
-                        // Updated vertical counts
-                        searchVerticals = searchVerticals.map(configuredVertical => {
-                            const verticalInfo = searchResultSourceData.verticalsInformation.filter(v => { return v.VerticalKey === configuredVertical.key; });
-                            if (verticalInfo.length > 0) {
-                                configuredVertical.count = verticalInfo[0].Count;
-                            }
-
-                            return configuredVertical;
-                        });
-                    }
-                }
-            }
-
-            renderElement = React.createElement(
-                SearchVerticalsContainer,
-                {
-                    verticals: searchVerticals,
-                    onVerticalSelected: this.onVerticalSelected,
-                    showCounts: this.properties.showCounts,
-                    themeVariant: this._themeVariant,
-                    defaultVerticalKey: defaultVerticalKey,
-                    tokenService: this._tokenService,
-                } as ISearchVerticalsContainerProps
-            );
-
-        } else {
-            if (this.displayMode === DisplayMode.Edit) {
-                renderElement = React.createElement(
-                    Placeholder,
-                    {
-                        iconName: strings.PlaceHolderEditLabel,
-                        iconText: strings.PlaceHolderIconText,
-                        description: strings.PlaceHolderDescription,
-                        buttonLabel: strings.PlaceHolderConfigureBtnLabel,
-                        onConfigure: this._setupWebPart.bind(this)
-                    }
-                );
-            } else {
-                renderElement = React.createElement('div', null);
-            }
-        }
-
-        ReactDom.render(renderElement, this.domElement);
+      // Generate an unique key for verticals to be able to identify them precisely in sub components instead using the vertical display name (can be duplicated).
+      this.properties.verticals = this.properties.verticals.map(vertical => {
+        vertical.key = vertical.key ? vertical.key : Guid.newGuid().toString();
+        return vertical;
+      });
     }
+  }
 
-    public getPropertyDefinitions(): ReadonlyArray<IDynamicDataPropertyDefinition> {
+  protected onDispose(): void {
+    ReactDom.unmountComponentAtNode(this.domElement);
+  }
 
-        // Use the Web Part title as property title since we don't expose sub properties
-        return [
+  protected get dataVersion(): Version {
+    return Version.parse('1.0');
+  }
+
+  protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {
+
+    let propertyPanePages: IPropertyPanePage[] = [];
+
+    propertyPanePages.push(
+      {
+        groups: [
+          {
+            groupName: webPartStrings.PropertyPane.SearchVerticalsGroupName,
+            groupFields: this._getVerticalsConfguration()
+          }
+        ],
+        displayGroupsAsAccordion: true
+      }
+    );
+
+    // 'About' infos
+    propertyPanePages.push(      
+      {
+        displayGroupsAsAccordion: true,
+        groups: [
+          ...this.getPropertyPaneWebPartInfoGroups()
+        ]
+      }
+    );
+
+    return {
+      pages: propertyPanePages
+    };
+  }
+
+  protected async onPropertyPaneConfigurationStart() {
+    await this.loadPropertyPaneResources();
+  }
+
+  protected async loadPropertyPaneResources(): Promise<void> {
+
+    // tslint:disable-next-line:no-shadowed-variable
+    const { PropertyFieldCollectionData, CustomCollectionFieldType } = await import(
+        /* webpackChunkName: 'search-property-pane' */
+        '@pnp/spfx-property-controls/lib/PropertyFieldCollectionData'
+    );
+
+    this._propertyFieldCollectionData = PropertyFieldCollectionData;
+    this._customCollectionFieldType = CustomCollectionFieldType;
+  }
+
+  private _getVerticalsConfguration(): IPropertyPaneField<any>[] {
+
+    let settingFields: IPropertyPaneField<any>[] = [
+      this._propertyFieldCollectionData('verticals', {
+        manageBtnLabel: webPartStrings.PropertyPane.Verticals.ButtonLabel,
+        key: 'verticals',
+        panelHeader: webPartStrings.PropertyPane.Verticals.PanelHeader,
+        panelDescription: webPartStrings.PropertyPane.Verticals.PanelDescription,
+        enableSorting: true,
+        label: webPartStrings.PropertyPane.Verticals.PropertyLabel,
+        value: this.properties.verticals,
+        fields: [
             {
-                id: SearchComponentType.SearchVerticalsWebPart,
-                title: this.title
+              id: 'tabName',
+              title: webPartStrings.PropertyPane.Verticals.Fields.TabName,
+              type: this._customCollectionFieldType.string,
+              required: true
+            },
+            {
+              id: 'iconName',
+              title: webPartStrings.PropertyPane.Verticals.Fields.IconName,
+              type: this._customCollectionFieldType.string,
+              required: false
+            },
+            {
+              id: 'isLink',
+              title: webPartStrings.PropertyPane.Verticals.Fields.IsLink,
+              type: this._customCollectionFieldType.boolean,
+              required: false
+            },
+            {
+              id: 'linkUrl',
+              title: webPartStrings.PropertyPane.Verticals.Fields.LinkUrl,
+              type: this._customCollectionFieldType.custom,
+              onCustomRender: (field, value, onUpdate, item) => {
+                return (
+                    React.createElement("div", null,
+                        React.createElement(TextField, {
+                            defaultValue: value,
+                            disabled: item.isLink ? false : true,
+                            placeholder: 'https://...',
+                            onChange: (ev, newValue) => {
+                              onUpdate(field.id, newValue);
+                            } 
+                        } as ITextFieldProps)
+                    )
+                );
+              }
+            },
+            {
+              id: 'openBehavior',
+              title: webPartStrings.PropertyPane.Verticals.Fields.OpenBehavior,
+              type: this._customCollectionFieldType.custom,
+              onCustomRender: (field, value, onUpdate, item) => {
+                return (
+                    React.createElement("div", null,
+                        React.createElement(Dropdown, {
+                          options: [
+                            {
+                              key: PageOpenBehavior.NewTab,
+                              text: commonStrings.General.NewTabOpenBehavior
+                            },
+                            {
+                              key: PageOpenBehavior.Self,
+                              text: commonStrings.General.SameTabOpenBehavior
+                            },
+                          ],
+                          disabled: item.isLink ? false : true,
+                          defaultSelectedKey: item.openBehavior,
+                          onChange: (ev, option) => onUpdate(field.id, option.key),
+                        } as IDropdownProps)
+                    )
+                );
+              }
             }
-        ];
-    }
+        ]
+      })
+    ];
 
-    public getPropertyValue(propertyId: string): ISearchVerticalSourceData {
-        switch (propertyId) {
+    return settingFields;
+  }
 
-            case SearchComponentType.SearchVerticalsWebPart:
-                return {
-                    selectedVertical: this._selectedVertical,
-                    verticalsConfiguration: this.properties.verticals,
-                    showCounts: this.properties.showCounts
-                } as ISearchVerticalSourceData;
+  private initializeWebPartServices(): void {
+    this.tokenService = this.context.serviceScope.consume<ITokenService>(TokenService.ServiceKey);
+  }
 
-            default:
-                throw new Error('Bad property id');
-        }
-    }
+  /**
+   * Initializes required Web Part properties
+   */
+  private initializeProperties() {
+  
+    this.properties.verticals = this.properties.verticals ? this.properties.verticals : [
+      {
+        key: '0d8255b1-2d3d-4e88-add6-44708afec979',
+        tabName: 'SharePoint',
+        iconName: 'SharePointLogo',
+        isLink: false,
+        linkUrl: undefined,
+        openBehavior: PageOpenBehavior.NewTab
+      },
+      {
+        key: 'a8f958e5-5f4c-468e-a355-7f45bb6e37a1',
+        tabName: 'Microsoft Graph',
+        iconName: 'AzureAPIManagement',
+        isLink: false,
+        linkUrl: undefined,
+        openBehavior: PageOpenBehavior.NewTab
+      },
+      {
+        key: '21590a77-1756-4824-8cd5-c3b276547d0f',
+        tabName: 'Documentation',
+        iconName: 'TextDocument',
+        isLink: true,
+        linkUrl: 'https://microsoft-search.github.io/pnp-modern-search/',
+        openBehavior: PageOpenBehavior.NewTab
+      }
+    ];
+  }
 
-    protected onInit(): Promise<void> {
-        
-        // Disable PnP Telemetry
-        const telemetry = PnPTelemetry.getInstance();
-        if (telemetry.optOut) telemetry.optOut();
+  private async onVerticalSelected(itemKey: string): Promise<void> {
+    
+    // Retrieve the search vertical using this id
+    const verticals = this.properties.verticals.filter(vertical => {
+      return vertical.key === itemKey;
+    });
 
-        this._dynamicDataService = new DynamicDataService(this.context.dynamicDataProvider);
-        this.ensureDataSourceConnection();
+    this._selectedVertical = verticals.length > 0 ? verticals[0] : undefined;
 
-        this.initThemeVariant();
-
-        this.initializeProperties();
-
-        this._tokenService = new TokenService(this.context.pageContext, this.context.spHttpClient);
-
-        this.properties.verticals = this.properties.verticals ? this.properties.verticals : [];
-
-        this.context.dynamicDataSourceManager.initializeSource(this);
-
-        return super.onInit();
-    }
-
-    protected onDispose(): void {
-        ReactDom.unmountComponentAtNode(this.domElement);
-    }
-
-    protected get dataVersion(): Version {
-        return Version.parse('1.0');
-    }
-
-    protected async loadPropertyPaneResources(): Promise<void> {
-
-        // tslint:disable-next-line:no-shadowed-variable
-        const { PropertyFieldCollectionData, CustomCollectionFieldType } = await import(
-            /* webpackChunkName: 'search-property-pane' */
-            '@pnp/spfx-property-controls/lib/PropertyFieldCollectionData'
-        );
-
-        this._propertyFieldCollectionData = PropertyFieldCollectionData;
-        this._customCollectionFieldType = CustomCollectionFieldType;
-    }
-
-    protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {
-        return {
-            pages: [
-                {
-                    groups: [
-                        {
-                            groupName: strings.SearchVerticalsGroupName,
-                            groupFields: this._getVerticalsConfguration()
-                        }
-                    ],
-                    displayGroupsAsAccordion: true
-                }
-            ]
-        };
-    }
-
-    protected onPropertyPaneFieldChanged(propertyPath: string) {
-
-        // Bind connected data sources
-        if (this.properties.searchResultsDataSourceReference) {
-            this.ensureDataSourceConnection();
-        }
-
-        if (propertyPath.localeCompare('verticals') === 0) {
-
-            // Generate an unique key for verticals to be able to identify them precisely in sub components instead using the vertical display name (can be duplicated).
-            this.properties.verticals = this.properties.verticals.map(vertical => {
-                vertical.key = vertical.key ? vertical.key : Guid.newGuid().toString();
-                return vertical;
-            });
-        }
-
-        if (!this.properties.showCounts) {
-            this.properties.searchResultsDataSourceReference = undefined;
-            this._searchResultSourceData = undefined;
-        }
-
-        this.context.dynamicDataSourceManager.notifyPropertyChanged(SearchComponentType.SearchVerticalsWebPart);
-    }
-
-    private _getVerticalsConfguration(): IPropertyPaneField<any>[] {
-
-        let settingFields: IPropertyPaneField<any>[] = [
-            this._propertyFieldCollectionData('verticals', {
-                manageBtnLabel: strings.PropertyPane.Verticals.ButtonLabel,
-                key: 'verticals',
-                panelHeader: strings.PropertyPane.Verticals.PanelHeader,
-                panelDescription: strings.PropertyPane.Verticals.PanelDescription,
-                enableSorting: true,
-                label: strings.PropertyPane.Verticals.PropertyLabel,
-                value: this.properties.verticals,
-                fields: [
-                    {
-                        id: 'tabName',
-                        title: strings.PropertyPane.Verticals.Fields.TabName,
-                        type: this._customCollectionFieldType.string,
-                        required: true
-                    },
-                    {
-                        id: 'queryTemplate',
-                        title: strings.PropertyPane.Verticals.Fields.QueryTemplate,
-                        type: this._customCollectionFieldType.custom,
-                        onCustomRender: (field, value, onUpdate, item, itemId, onCustomFieldValidation) => {
-                          return (
-                              React.createElement("div", null,
-                                  React.createElement(TextField, {
-                                      defaultValue: value,
-                                      disabled: item.isLink ? true : false,
-                                      required: item.isLink ? false : true,
-                                      onGetErrorMessage: (errValue: string) => {
-                                          if (!errValue) {
-                                            onCustomFieldValidation(field.id, strings.PropertyPane.Verticals.FieldValidationErrorMessage);
-                                          } else {
-                                            onCustomFieldValidation(field.id, '');
-                                          }
-                                      },
-                                      placeholder: '{searchTerms}',
-                                      onChange: (ev, newValue) => {
-                                        onUpdate(field.id, newValue);
-                                      } 
-                                  } as ITextFieldProps)
-                              )
-                          );
-                        }
-                    },
-                    {
-                        id: 'resultSourceId',
-                        title: strings.PropertyPane.Verticals.Fields.ResultSource,
-                        type: this._customCollectionFieldType.custom,
-                        onCustomRender: (field, value, onUpdate, item, itemId, onCustomFieldValidation) => {
-                          return (
-                              React.createElement("div", null,
-                                  React.createElement(TextField, {
-                                      defaultValue: value,
-                                      disabled: item.isLink ? true : false,
-                                      onChange: (ev, newValue) => {
-                                        onUpdate(field.id, newValue);
-                                      } 
-                                  } as ITextFieldProps)
-                              )
-                          );
-                        }
-                    },
-                    {
-                        id: 'iconName',
-                        title: strings.PropertyPane.Verticals.Fields.IconName,
-                        type: this._customCollectionFieldType.string,
-                        required: false
-                    },
-                    {
-                        id: 'isLink',
-                        title: strings.PropertyPane.Verticals.Fields.IsLink,
-                        type: this._customCollectionFieldType.boolean,
-                        required: false
-                      },
-                      {
-                        id: 'linkUrl',
-                        title: strings.PropertyPane.Verticals.Fields.LinkUrl,
-                        type: this._customCollectionFieldType.custom,
-                        onCustomRender: (field, value, onUpdate, item, itemId, onCustomFieldValidation) => {
-                          return (
-                              React.createElement("div", null,
-                                  React.createElement(TextField, {
-                                      defaultValue: value,
-                                      disabled: item.isLink ? false : true,
-                                      placeholder: 'https://...',
-                                      onChange: (ev, newValue) => {
-                                        onUpdate(field.id, newValue);
-                                      } 
-                                  } as ITextFieldProps)
-                              )
-                          );
-                        }
-                      },
-                      {
-                        id: 'openBehavior',
-                        title: strings.PropertyPane.Verticals.Fields.OpenBehavior,
-                        type: this._customCollectionFieldType.custom,
-                        defaultValue: PageOpenBehavior.NewTab,
-                        onCustomRender: (field, value, onUpdate, item, itemId, onCustomFieldValidation) => {
-                          return (
-                              React.createElement("div", null,
-                                  React.createElement(Dropdown, {
-                                    options: [
-                                      {
-                                        key: PageOpenBehavior.NewTab,
-                                        text: strings.NewTabOpenBehavior
-                                      },
-                                      {
-                                        key: PageOpenBehavior.Self,
-                                        text: strings.SameTabOpenBehavior
-                                      },
-                                    ],
-                                    disabled: item.isLink ? false : true,
-                                    defaultSelectedKey: item.openBehavior,
-                                    onChange: (ev, option) => onUpdate(field.id, option.key),
-                                  } as IDropdownProps)
-                              )
-                          );
-                        }
-                      }
-                ]
-            })
-        ];
-
-        if (this.properties.verticals.length > 0) {
-            settingFields.push(
-                PropertyPaneToggle('showCounts', {
-                    label: strings.PropertyPane.ShowCounts.PropertyLabel
-                }),
-                PropertyPaneTextField('defaultVerticalQuerystringParam', {
-                    label: strings.PropertyPane.DefaultVerticalQuerystringParam.PropertyLabel
-                })
-            );
-        }
-
-        if (this.properties.showCounts) {
-            settingFields.push(
-                PropertyPaneDropdown('searchResultsDataSourceReference', {
-                    options: this._dynamicDataService.getAvailableDataSourcesByType(SearchComponentType.SearchResultsWebPart),
-                    label: strings.PropertyPane.SearchResultsDataSource.PropertyLabel
-                })
-            );
-        }
-
-        return settingFields;
-    }
-
-    private onVerticalSelected(itemKey: string): void {
-
-        // Retrieve the search vertical using this id
-        const verticals = this.properties.verticals.filter(vertical => {
-            return vertical.key === itemKey;
-        });
-
-        this._selectedVertical = verticals.length > 0 ? verticals[0] : undefined;
-
-        // Notify subscriber a new vertical has been selected
-        this.context.dynamicDataSourceManager.notifyPropertyChanged(SearchComponentType.SearchVerticalsWebPart);
-    }
-
-    /**
-     * Make sure the dynamic property is correctly connected to the source if a search results component has been selected in options 
-     */
-    private ensureDataSourceConnection() {
-
-        if (this.properties.searchResultsDataSourceReference) {
-
-            // Register the data source manually since we don't want user select properties manually
-            if (!this._searchResultSourceData) {
-                this._searchResultSourceData = new DynamicProperty<ISearchResultSourceData>(this.context.dynamicDataProvider);
-            }
-
-            this._searchResultSourceData.setReference(this.properties.searchResultsDataSourceReference);
-            this._searchResultSourceData.register(this.render);
-
-        } else {
-            if (this._searchResultSourceData) {
-                this._searchResultSourceData.unregister(this.render);
-            }
-        }
-    }
-
-    private initializeProperties() {
-
-        this.properties.verticals = this.properties.verticals ? this.properties.verticals : [
-                                                                                                {
-                                                                                                    key: "64db0487-0b73-4ffa-b250-d7869d85b7fe",
-                                                                                                    queryTemplate: "{searchTerms}",
-                                                                                                    resultSourceId: "78b793ce-7956-4669-aa3b-451fc5defebf",
-                                                                                                    tabName: "Videos",
-                                                                                                    iconName : "Video",
-                                                                                                    openBehavior: PageOpenBehavior.NewTab,
-                                                                                                    isLink: false,
-                                                                                                    linkUrl: ''
-                                                                                                },
-                                                                                                {
-                                                                                                    key: "afb855dc-7808-4366-a320-4a73be69a979",
-                                                                                                    queryTemplate: "{searchTerms}",
-                                                                                                    resultSourceId: "b09a7990-05ea-4af9-81ef-edfab16c4e31",
-                                                                                                    tabName: "People",
-                                                                                                    iconName : "People",
-                                                                                                    openBehavior: PageOpenBehavior.NewTab,
-                                                                                                    isLink: false,
-                                                                                                    linkUrl: ''
-                                                                                                },
-                                                                                                {
-                                                                                                    key: "9da0e1d9-4765-42ff-b562-cf7796d408f6",
-                                                                                                    queryTemplate: "{searchTerms}",
-                                                                                                    resultSourceId: "ba63bbae-fa9c-42c0-b027-9a878f16557c",
-                                                                                                    tabName: "Recently changed items",
-                                                                                                    iconName: "Documentation",
-                                                                                                    openBehavior: PageOpenBehavior.NewTab,
-                                                                                                    isLink: false,
-                                                                                                    linkUrl: ''
-                                                                                                }
-                                                                                            ];
-    }
-
-    /**
-     * Opens the Web Part property pane
-     */
-    private _setupWebPart() {
-        this.context.propertyPane.open();
-    }
-
-    /**
-     * Initializes theme variant properties
-     */
-    private initThemeVariant(): void {
-
-        // Consume the new ThemeProvider service
-        this._themeProvider = this.context.serviceScope.consume(ThemeProvider.serviceKey);
-
-        // If it exists, get the theme variant
-        this._themeVariant = this._themeProvider.tryGetTheme();
-
-        // Register a handler to be notified if the theme variant changes
-        this._themeProvider.themeChangedEvent.add(this, this._handleThemeChangedEvent.bind(this));
-    }
-
-    /**
-     * Update the current theme variant reference and re-render.
-     * @param args The new theme
-     */
-    private _handleThemeChangedEvent(args: ThemeChangedEventArgs): void {
-        if (!isEqual(this._themeVariant, args.theme)) {
-            this._themeVariant = args.theme;
-            this.render();
-        }
-    }
+    // Notify subscriber a new vertical has been selected
+    this.context.dynamicDataSourceManager.notifyPropertyChanged(ComponentType.SearchVerticals);
+  }
 }

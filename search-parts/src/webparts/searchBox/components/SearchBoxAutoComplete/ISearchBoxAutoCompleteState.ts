@@ -1,4 +1,4 @@
-import { ISuggestion } from "../../../../models/ISuggestion";
+import { ISuggestion } from "@pnp/modern-search-extensibility";
 
 export interface ISearchBoxAutoCompleteState {
     /**

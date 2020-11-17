@@ -7,16 +7,16 @@ export class UrlHelper {
     public static isValidUrl(url: string): boolean {
         return /((([A-Za-z]{3,9}:(?:\/\/)?)(?:[\-;:&=\+\$,\w]+@)?[A-Za-z0-9\.\-]+|(?:www\.|[\-;:&=\+\$,\w]+@)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&;%@\.\w_]*)#?(?:[\.\!\/\\\w]*))?)/.test(url);
     }
-    
+
     /**
      * Get the value of a querystring
      * @param  {String} field The field to get the value of
      * @param  {String} url   The URL to get the value from (optional)
      * @return {String}       The field value
      */
-    public static getQueryStringParam(field: string , url: string ): string {
+    public static getQueryStringParam(field: string, url: string): string {
         const href = url ? url : window.location.href;
-        const reg = new RegExp( "[?&#]" + field + "=([^&#]*)", "i" );
+        const reg = new RegExp("[?&#]" + field + "=([^&#]*)", "i");
         const qs = reg.exec(href);
         return qs ? qs[1] : null;
     }
@@ -26,7 +26,7 @@ export class UrlHelper {
      * @param {String} sourceURL The source URL
      * @return {String}       The updated URL
      */
-    public static removeQueryStringParam(field: string , sourceURL: string ): string {
+    public static removeQueryStringParam(field: string, sourceURL: string): string {
         let rtn = sourceURL.split("?")[0];
         let param = null;
         let paramsArr = [];
@@ -72,14 +72,24 @@ export class UrlHelper {
 
         return newString;
     }
+
+    /**
+     * Decodes a provided string
+     * @param encodedStr the string to decode
+     */
+    public static decode(encodedStr: string) {
+        const domParser = new DOMParser();
+        const htmlContent: Document = domParser.parseFromString(`<!doctype html><body>${encodedStr}</body>`, 'text/html');
+        return htmlContent.body.textContent;
+    }
 }
 
 export enum PageOpenBehavior {
-    "Self",
-    "NewTab"
+    "Self" = "Self",
+    "NewTab" = "NewTab"
 }
 
 export enum QueryPathBehavior {
-    "URLFragment",
-    "QueryParameter"
+    "URLFragment" = "URLFragment",
+    "QueryParameter" = "QueryParameter"
 }

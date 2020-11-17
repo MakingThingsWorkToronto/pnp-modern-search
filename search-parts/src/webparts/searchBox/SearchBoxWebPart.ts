@@ -1,611 +1,782 @@
 import * as React from 'react';
 import * as ReactDom from 'react-dom';
-import { Version, Environment, EnvironmentType } from '@microsoft/sp-core-library';
+import { Version, ServiceKey, Text } from '@microsoft/sp-core-library';
+import { GlobalSettings } from 'office-ui-fabric-react';
+import { IWebPartPropertiesMetadata } from '@microsoft/sp-webpart-base';
+import { uniqBy } from '@microsoft/sp-lodash-subset';
+import { DynamicProperty } from "@microsoft/sp-component-base";
+import * as webPartStrings from 'SearchBoxWebPartStrings';
 import {
-    BaseClientSideWebPart,
-    IWebPartPropertiesMetadata,
-} from '@microsoft/sp-webpart-base';
-import {
-    IPropertyPaneConfiguration,
-    IPropertyPaneField,
-    PropertyPaneCheckbox,
-    PropertyPaneDropdown,
-    PropertyPaneDynamicField,
-    PropertyPaneDynamicFieldSet,
-    PropertyPaneHorizontalRule,
-    PropertyPaneTextField,
-    PropertyPaneToggle,
-    DynamicDataSharedDepth
+  IPropertyPaneConfiguration,
+  IPropertyPaneField,
+  PropertyPaneSlider,
+  PropertyPaneDropdown,
+  PropertyPaneDynamicField,
+  PropertyPaneDynamicFieldSet,
+  PropertyPaneTextField,
+  PropertyPaneToggle,
+  DynamicDataSharedDepth,
+  IPropertyPanePage,
+  IPropertyPaneGroup
 } from "@microsoft/sp-property-pane";
-import * as strings from 'SearchBoxWebPartStrings';
-import ISearchBoxWebPartProps from './ISearchBoxWebPartProps';
+import SearchBoxContainer from './components/SearchBoxContainer';
+import { ISearchBoxContainerProps } from './components/ISearchBoxContainerProps';
+import { DynamicDataService } from '../../services/dynamicDataService/DynamicDataService';
 import { IDynamicDataCallables, IDynamicDataPropertyDefinition } from '@microsoft/sp-dynamic-data';
-import { ISearchBoxContainerProps } from './components/SearchBoxContainer/ISearchBoxContainerProps';
-import ISearchService from '../../services/SearchService/ISearchService';
-import MockSearchService from '../../services/SearchService/MockSearchService';
-import SearchService from '../../services/SearchService/SearchService';
-import { PageOpenBehavior, QueryPathBehavior, UrlHelper } from '../../helpers/UrlHelper';
-import SearchBoxContainer from './components/SearchBoxContainer/SearchBoxContainer';
-import { SearchComponentType } from '../../models/SearchComponentType';
-import IExtensibilityService from '../../services/ExtensibilityService/IExtensibilityService';
-import { ExtensibilityService } from '../../services/ExtensibilityService/ExtensibilityService';
-import { ISuggestionProviderDefinition } from '../../services/ExtensibilityService/ISuggestionProviderDefinition';
-import { SharePointDefaultSuggestionProvider } from '../../providers/SharePointDefaultSuggestionProvider';
-import { ISuggestionProviderInstance } from '../../services/ExtensibilityService/ISuggestionProviderInstance';
-import { ObjectCreator } from '../../services/ExtensibilityService/ObjectCreator';
-import { BaseSuggestionProvider } from '../../providers/BaseSuggestionProvider';
-import { Toggle } from 'office-ui-fabric-react/lib/Toggle';
-import { ThemeProvider, ThemeChangedEventArgs, IReadonlyTheme } from '@microsoft/sp-component-base';
-import { isEqual, find } from '@microsoft/sp-lodash-subset';
-import { GlobalSettings, hasHorizontalOverflow } from 'office-ui-fabric-react';
-import PnPTelemetry from "@pnp/telemetry-js";
+import IDynamicDataService from '../../services/dynamicDataService/IDynamicDataService';
+import { ComponentType } from '../../common/ComponentType';
+import { ISearchBoxWebPartProps } from './ISearchBoxWebPartProps';
+import { UrlHelper, PageOpenBehavior, QueryPathBehavior } from '../../helpers/UrlHelper';
+import * as commonStrings from 'CommonStrings';
+import { ServiceScope } from '@microsoft/sp-core-library';
+import { ISuggestionProviderDefinition, BaseSuggestionProvider } from '@pnp/modern-search-extensibility';
+import { AvailableSuggestionProviders, BuiltinSuggestionProviderKeys } from '../../providers/AvailableSuggestionProviders';
+import { ISuggestionProvider } from '@pnp/modern-search-extensibility';
+import { ServiceScopeHelper } from '../../helpers/ServiceScopeHelper';
+import { Toggle, IToggleProps, MessageBar, MessageBarType, Link } from "office-ui-fabric-react";
+import { ISuggestionProviderConfiguration } from '../../providers/ISuggestionProviderConfiguration';
+import { IExtensibilityConfiguration } from '../../models/common/IExtensibilityConfiguration';
+import { Constants } from '../../common/Constants';
+import { BuiltinTokenNames } from '../../services/tokenService/TokenService';
+import { BaseWebPart } from '../../common/BaseWebPart';
 
-export default class SearchBoxWebPart extends BaseClientSideWebPart<ISearchBoxWebPartProps> implements IDynamicDataCallables {
+export default class SearchBoxWebPart extends BaseWebPart<ISearchBoxWebPartProps> implements IDynamicDataCallables {
 
-    private _searchQuery: string;
-    private _searchService: ISearchService;
-    private _themeProvider: ThemeProvider;
-    private _extensibilityService: IExtensibilityService;
-    private _suggestionProviderInstances: ISuggestionProviderInstance<any>[];
-    private _initComplete: boolean = false;
-    private _foundCustomSuggestionProviders: boolean = false;
+  /**
+   * The error message
+   */
+  private errorMessage: string = undefined;
 
-    private _propertyFieldCollectionData = null;
-    private _customCollectionFieldType = null;
-    private _themeVariant: IReadonlyTheme;
-    private _ops = null;
+  /**
+   * Dynamically loaded components for property pane
+   */
+  private _propertyFieldCollectionData: any = null;
+  private _customCollectionFieldType: any = null;
 
-    constructor() {
-        super();
+  /**
+   * The dynamic data service instance
+   */
+  private dynamicDataService: IDynamicDataService;
 
-        // Initialize default values for search query
-        this._searchQuery = '';
+  /**
+   * The search query text present in the search box
+   */
+  private _searchQueryText: string = '';
 
-        this._bindHashChange = this._bindHashChange.bind(this);
+  /*
+  * The service scope for this specific Web Part instance
+  */
+  private webPartInstanceServiceScope: ServiceScope;
+
+  /**
+   * The available custom suggestions providers
+   */
+  private availableCustomProviders: ISuggestionProviderDefinition[] = AvailableSuggestionProviders.BuiltinSuggestionProviders;
+
+  /**
+   * The current selected suggestion providers
+   */
+  private _selectedCustomProviders: ISuggestionProvider[] = [];
+
+  constructor() {
+    super();
+
+    this._bindHashChange = this._bindHashChange.bind(this);
+  }
+
+  protected async onInit() {
+
+    this.initializeProperties();
+
+    // Initializes shared services
+    await this.initializeBaseWebPart();
+
+    // Initializes the Web Part instance services
+    this.initializeWebPartServices();
+
+    // Load extensibility libaries extensions
+    await this.loadExtensions(this.properties.extensibilityLibraryConfiguration);
+
+    this._bindHashChange();
+
+    this.context.dynamicDataSourceManager.initializeSource(this);
+
+    return super.onInit();
+  }
+
+  public async render(): Promise<void> {
+
+      try {
+
+        // Reset the error message every time
+        this.errorMessage = undefined;
+
+        // Initialize provider instances
+        this._selectedCustomProviders = await this.initializeSuggestionProviders(this.properties.suggestionProviderConfiguration);
+
+      } catch (error) {
+        // Catch instanciation or wrong definition errors for extensibility scenarios
+        this.errorMessage = error.message ? error.message : error;
+      }
+
+      if (this.context.propertyPane.isPropertyPaneOpen()) {
+        this.context.propertyPane.refresh();
+      }
+
+      return this.renderCompleted();
+  }
+
+  protected renderCompleted(): void {
+
+    let renderRootElement: JSX.Element = null;
+
+    let inputValue = this.properties.queryText.tryGetValue();
+
+    if (inputValue && typeof(inputValue) === 'string') {
+
+      // Notify subscriber a new value if available
+      this._searchQueryText = decodeURIComponent(inputValue);
+
+      // Set the input query text globally for the page. There can be only one input query text submitted at a time even if multiple search box components are on the page
+      GlobalSettings.setValue(BuiltinTokenNames.inputQueryText, this._searchQueryText);
+
+      this.context.dynamicDataSourceManager.notifyPropertyChanged(ComponentType.SearchBox);
     }
 
-    public render(): void {
+    renderRootElement = React.createElement(SearchBoxContainer, {
+      domElement: this.domElement,
+      enableQuerySuggestions: this.properties.enableQuerySuggestions,
+      inputValue: this._searchQueryText,
+      openBehavior: this.properties.openBehavior,
+      pageUrl: this.properties.pageUrl,
+      placeholderText: this.properties.placeholderText,
+      queryPathBehavior: this.properties.queryPathBehavior,
+      queryStringParameter: this.properties.queryStringParameter,
+      searchInNewPage: this.properties.searchInNewPage,
+      themeVariant: this._themeVariant,
+      onSearch: this._onSearch,
+      suggestionProviders: this._selectedCustomProviders,
+      numberOfSuggestionsPerGroup: this.properties.numberOfSuggestionsPerGroup
+    } as ISearchBoxContainerProps);  
 
-        if (!this._initComplete) {
-            return;
-        }
-
-        let inputValue = this.properties.defaultQueryKeywords.tryGetValue();
-
-        if (inputValue) {
-            if (typeof (inputValue) === 'string') {
-                this._searchQuery = decodeURIComponent(inputValue);
-            }
-            else if (typeof (inputValue) === 'object') {
-                this._searchQuery = "";
-                //https://github.com/microsoft-search/pnp-modern-search/issues/325
-                //new issue with search body as object - 2020-06-23
-                const refChunks = this.properties.defaultQueryKeywords.reference.split(':');
-                if (refChunks.length >= 3) {
-                    const environmentType = refChunks[1];
-                    const paramType = refChunks[2];
-
-                    if (environmentType == "UrlData" && paramType !== "fragment") {
-                        const paramChunks = paramType.split('.');
-                        const queryTextParam = paramChunks.length === 2 ? paramChunks[1] : 'q';
-                        if (inputValue[paramChunks[0]][queryTextParam]) {
-                            this._searchQuery = decodeURIComponent(inputValue[paramChunks[0]][queryTextParam]);
-                        }
-                    }
-                    else if (inputValue[paramType] && inputValue[paramType] !== 'undefined') {
-                        this._searchQuery = decodeURIComponent(inputValue[paramType]);
-                    }
-                }
-            }
-
-            // Save this value in a global context
-            GlobalSettings.setValue('searchBoxQuery', this._searchQuery);
-
-            // Notify subscriber a new value if available
-            this.context.dynamicDataSourceManager.notifyPropertyChanged('searchQuery');
-
-        }
-
-        const enableSuggestions = this.properties.enableQuerySuggestions && this.properties.suggestionProviders.some(sp => sp.providerEnabled);
-
-        const element: React.ReactElement<ISearchBoxContainerProps> = React.createElement(
-            SearchBoxContainer, {
-                onSearch: this._onSearch,
-                searchInNewPage: this.properties.searchInNewPage,
-                pageUrl: this.properties.pageUrl,
-                openBehavior: this.properties.openBehavior,
-                queryPathBehavior: this.properties.queryPathBehavior,
-                queryStringParameter: this.properties.queryStringParameter,
-                inputValue: this._searchQuery,
-                enableQuerySuggestions: enableSuggestions,
-                suggestionProviders: this._suggestionProviderInstances,
-                searchService: this._searchService,
-                placeholderText: this.properties.placeholderText,
-                domElement: this.domElement,
-                themeVariant: this._themeVariant
-            } as ISearchBoxContainerProps);
-
-        ReactDom.render(element, this.domElement);
+    // Error message
+    if (this.errorMessage) {
+      renderRootElement = React.createElement(MessageBar, {
+        messageBarType: MessageBarType.error,
+      }, this.errorMessage, React.createElement(Link, {
+        target: '_blank',
+        href: this.properties.documentationLink
+      }, commonStrings.General.Resources.PleaseReferToDocumentationMessage));
     }
 
-    /**
-     * Return list of dynamic data properties that this dynamic data source
-     * returns
-     */
-    public getPropertyDefinitions(): ReadonlyArray<IDynamicDataPropertyDefinition> {
-        return [
-            {
-                id: SearchComponentType.SearchBoxWebPart,
-                title: strings.DynamicData.SearchQueryPropertyLabel
-            },
-        ];
+    ReactDom.render(renderRootElement, this.domElement);
+    
+    // This call set this.renderedOnce to 'true' so we need to execute it at the very end
+    super.renderCompleted(); 
+  }
+
+  protected onDispose(): void {
+    ReactDom.unmountComponentAtNode(this.domElement);
+  }
+
+  protected get isRenderAsync(): boolean {
+    return true;
+  }
+
+  protected get dataVersion(): Version {
+    return Version.parse('1.0');
+  }
+
+  protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {
+
+    let propertyPanePages: IPropertyPanePage[] = [];
+    let providerOptionGroups: IPropertyPaneGroup[] = [];
+    let extensibilityConfigurationGroups: IPropertyPaneGroup[] = [];
+
+
+    if (this._selectedCustomProviders.length > 0 && !this.errorMessage) {
+      this._selectedCustomProviders.forEach(provider => {
+        providerOptionGroups = providerOptionGroups.concat(provider.getPropertyPaneGroupsConfiguration());
+      });
     }
 
-    /**
-     * Return the current value of the specified dynamic data set
-     * @param propertyId ID of the dynamic data set to retrieve the value for
-     */
-    public getPropertyValue(propertyId: string) {
+    propertyPanePages.push(
+      {
+        groups: [
+          {
+            groupName: webPartStrings.PropertyPane.SearchBoxSettingsGroup.GroupName,
+            groupFields: this._getSearchBoxSettingsFields()
+          }
+        ],
+        displayGroupsAsAccordion: true
+      },
+      {
+        groups: [
+          {
+            groupName: webPartStrings.PropertyPane.QuerySuggestionsGroup.GroupName,
+            groupFields: this._getSearchQuerySuggestionsFields()
+          },
+          ...providerOptionGroups
+        ],
+        displayGroupsAsAccordion: true
+      },
+      {
+        groups: [
+          {
+            groupName: webPartStrings.PropertyPane.AvailableConnectionsGroup.GroupName,
+            groupFields: this._getSearchAvailableConnectionsFields()
+          }
+        ],
+        displayGroupsAsAccordion: true
+      }
+    );  
+    
+    // Extensibility configuration
+    extensibilityConfigurationGroups.push({
+      groupName: commonStrings.PropertyPane.InformationPage.Extensibility.GroupName,
+      groupFields: this.getExtensibilityFields()
+    });
+    
 
-        switch (propertyId) {
+    // 'About' infos
+    propertyPanePages.push(      
+      {
+        displayGroupsAsAccordion: true,
+        groups: [
+          ...this.getPropertyPaneWebPartInfoGroups(),
+          ...extensibilityConfigurationGroups
+        ]
+      }
+    );
 
-            case 'searchQuery':
-                return this._searchQuery;
+    return {
+      pages: propertyPanePages
+    };
+  }
 
-            default:
-                throw new Error('Bad property id');
-        }
+  protected async loadPropertyPaneResources(): Promise<void> {
+
+    const { PropertyFieldCollectionData, CustomCollectionFieldType } = await import(
+        /* webpackChunkName: 'searchbox-property-pane' */
+        '@pnp/spfx-property-controls/lib/PropertyFieldCollectionData'
+    );
+    this._propertyFieldCollectionData = PropertyFieldCollectionData;
+    this._customCollectionFieldType = CustomCollectionFieldType;
+  }
+
+  protected get propertiesMetadata(): IWebPartPropertiesMetadata {
+    return {
+      'queryText': {
+        dynamicPropertyType: 'string'
+      }
+    };
+  }
+
+  protected async onPropertyPaneFieldChanged(propertyPath: string, oldValue: any, newValue: any): Promise<void> {
+
+    if (!this.properties.useDynamicDataSource) {
+      this.properties.queryText.setValue('');
     }
 
-    protected async onInit(): Promise<void> {
+    if (propertyPath.localeCompare('enableQuerySuggestions') === 0 && !newValue) {
 
-        // Disable PnP Telemetry
-        const telemetry = PnPTelemetry.getInstance();
-        if (telemetry.optOut) telemetry.optOut();
-
-        this.context.dynamicDataSourceManager.initializeSource(this);
-
-        this.initSearchService();
-        this.initThemeVariant();
-
-        this._bindHashChange();
-
-        this._handleQueryStringChange();
-
-        this._extensibilityService = new ExtensibilityService();
-        await this.initSuggestionProviders();
-
-        this._initComplete = true;
-        return super.onInit();
+      // Disable all providers
+      this.properties.suggestionProviderConfiguration.forEach(provider => {
+        provider.enabled = false;
+      });
     }
 
-    protected onDispose(): void {
-        window.history.pushState = this._ops;
-        ReactDom.unmountComponentAtNode(this.domElement);
+    if (propertyPath.localeCompare('extensibilityLibraryConfiguration') === 0) {
+
+      // Remove duplicates if any
+      const cleanConfiguration = uniqBy(this.properties.extensibilityLibraryConfiguration , 'id');
+
+      // Reset existing definitions to default
+      this.availableCustomProviders = AvailableSuggestionProviders.BuiltinSuggestionProviders;
+
+      await this.loadExtensions(cleanConfiguration);
     }
 
-    protected get dataVersion(): Version {
-        return Version.parse('1.0');
+    this._bindHashChange();
+  }
+
+  protected async onPropertyPaneConfigurationStart() {
+    await this.loadPropertyPaneResources();
+  }
+
+  public getPropertyDefinitions(): IDynamicDataPropertyDefinition[] {
+    // Use the Web Part title as property title since we don't expose sub properties
+    return [
+      {
+          id: ComponentType.SearchBox,
+          title: webPartStrings.General.DynamicPropertyDefinition
+      }
+    ];
+  }
+
+  public getPropertyValue(propertyId: string) {
+      switch (propertyId) {
+        case ComponentType.SearchBox:
+          return this._searchQueryText;
+      }
+  }
+
+  /**
+   * Determines the group fields for the search query options inside the property pane
+   */
+  private _getSearchAvailableConnectionsFields(): IPropertyPaneField<any>[] {
+
+    // Sets up search query fields
+    let searchAvailabeConnectionsConfigFields: IPropertyPaneField<any>[] = [
+      PropertyPaneToggle('useDynamicDataSource', {
+        label: webPartStrings.PropertyPane.AvailableConnectionsGroup.UseDynamicDataSourceLabel,
+      })
+    ];
+
+    if (this.properties.useDynamicDataSource) {
+      searchAvailabeConnectionsConfigFields.push(
+        PropertyPaneDynamicFieldSet({
+          label: webPartStrings.PropertyPane.AvailableConnectionsGroup.QueryKeywordsPropertyLabel,
+          fields: [
+            PropertyPaneDynamicField('queryText', {
+              label: webPartStrings.PropertyPane.AvailableConnectionsGroup.QueryKeywordsPropertyLabel,
+            })
+          ],
+          sharedConfiguration: {
+            depth: DynamicDataSharedDepth.Source,
+          }
+        })
+      );
     }
 
-    protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {
-        return {
-            pages: [
-                {
-                    groups: [
-                        {
-                            groupName: strings.SearchBoxQuerySettings,
-                            groupFields: this._getSearchQueryFields()
-                        },
-                        {
-                            groupName: strings.SearchBoxNewPage,
-                            groupFields: this._getSearchBehaviorOptionsFields()
-                        }
-                    ],
-                    displayGroupsAsAccordion: true
-                }
+    return searchAvailabeConnectionsConfigFields;
+  }
+
+  private _getSearchQuerySuggestionsFields(): IPropertyPaneField<any>[] {
+
+    let searchQuerySuggestionsFields: IPropertyPaneField<any>[] = [
+      PropertyPaneToggle("enableQuerySuggestions", {
+        label: webPartStrings.PropertyPane.QuerySuggestionsGroup.EnableQuerySuggestions
+      })
+    ];
+
+    if (this.properties.enableQuerySuggestions) {
+
+      searchQuerySuggestionsFields.push(
+        this._propertyFieldCollectionData('suggestionProviderConfiguration', {
+          manageBtnLabel: webPartStrings.PropertyPane.QuerySuggestionsGroup.EditSuggestionProvidersLabel,
+          key: 'suggestionProviderConfiguration',
+          panelHeader: webPartStrings.PropertyPane.QuerySuggestionsGroup.EditSuggestionProvidersLabel,
+          panelDescription: webPartStrings.PropertyPane.QuerySuggestionsGroup.SuggestionProvidersDescription,
+          disableItemCreation: true,
+          disableItemDeletion: true,
+          disabled: !this.properties.enableQuerySuggestions,
+          label: webPartStrings.PropertyPane.QuerySuggestionsGroup.SuggestionProvidersLabel,
+          value: this.properties.suggestionProviderConfiguration,
+          fields: [
+              {
+                  id: 'enabled',
+                  title: webPartStrings.PropertyPane.QuerySuggestionsGroup.EnabledPropertyLabel,
+                  type: this._customCollectionFieldType.custom,
+                  onCustomRender: (field, value, onUpdate, item, itemId) => {
+                    return (
+                      React.createElement("div", null,
+                        React.createElement(Toggle, { key: itemId, checked: value, onChange: (evt, checked) => {
+                          onUpdate(field.id, checked);
+                        }})
+                      )
+                    );
+                  }
+              },
+              {
+                  id: 'name',
+                  title: webPartStrings.PropertyPane.QuerySuggestionsGroup.ProviderNamePropertyLabel,
+                  type: this._customCollectionFieldType.custom,
+                  onCustomRender: (field, value) => {
+                    return (
+                      React.createElement("div", { style: { 'fontWeight': 600 } }, value)
+                    );
+                  }
+              },
+              {
+                  id: 'description',
+                  title: webPartStrings.PropertyPane.QuerySuggestionsGroup.ProviderDescriptionPropertyLabel,
+                  type: this._customCollectionFieldType.custom,
+                  onCustomRender: (field, value) => {
+                    return (
+                      React.createElement("div", null, value)
+                    );
+                  }
+              }
             ]
-        };
+        }),
+        PropertyPaneSlider('numberOfSuggestionsPerGroup', {
+          min: 1,
+          max: 20,
+          showValue: true,
+          step: 1,
+          label: webPartStrings.PropertyPane.QuerySuggestionsGroup.NumberOfSuggestionsToShow
+        })
+      );
     }
 
-    protected async onPropertyPaneFieldChanged(propertyPath: string): Promise<void> {
+    return searchQuerySuggestionsFields;
+  }
 
-        this.initSearchService();
+  /**
+   * Determines the group fields for the search options inside the property pane
+   */
+  private _getSearchBoxSettingsFields(): IPropertyPaneField<any>[] {
 
-        if (!this.properties.useDynamicDataSource) {
-            this.properties.defaultQueryKeywords.setValue("");
-        }
+    let searchBehaviorOptionsFields: IPropertyPaneField<any>[]  = [
+      PropertyPaneTextField('placeholderText', {
+        label: webPartStrings.PropertyPane.SearchBoxSettingsGroup.PlaceholderTextLabel
+      }),
+      PropertyPaneToggle("searchInNewPage", {
+        label: webPartStrings.PropertyPane.SearchBoxSettingsGroup.SearchInNewPageLabel
+      })
+    ];
+    
 
-        if (propertyPath.localeCompare('suggestionProviders') === 0) {
-            await this.initSuggestionProviders();
-        }
-
-        this._bindHashChange();
+    if (this.properties.searchInNewPage) {
+      searchBehaviorOptionsFields = searchBehaviorOptionsFields.concat([
+        PropertyPaneTextField('pageUrl', {
+          disabled: !this.properties.searchInNewPage,
+          label: webPartStrings.PropertyPane.SearchBoxSettingsGroup.PageUrlLabel,
+          onGetErrorMessage: this._validatePageUrl.bind(this),
+          validateOnFocusOut: true,
+          validateOnFocusIn: true,
+          placeholder: 'https://...'
+        }),
+        PropertyPaneDropdown('openBehavior', {
+          label: commonStrings.General.PageOpenBehaviorLabel,
+          options: [
+            { key: PageOpenBehavior.Self, text: commonStrings.General.SameTabOpenBehavior},
+            { key: PageOpenBehavior.NewTab, text: commonStrings.General.NewTabOpenBehavior }
+          ],
+          disabled: !this.properties.searchInNewPage,
+          selectedKey: this.properties.openBehavior
+        }),
+        PropertyPaneDropdown('queryPathBehavior', {
+          label:  webPartStrings.PropertyPane.SearchBoxSettingsGroup.QueryPathBehaviorLabel,
+          options: [
+            { key: QueryPathBehavior.URLFragment, text: webPartStrings.PropertyPane.SearchBoxSettingsGroup.UrlFragmentQueryPathBehavior },
+            { key: QueryPathBehavior.QueryParameter, text: webPartStrings.PropertyPane.SearchBoxSettingsGroup.QueryStringQueryPathBehavior }
+          ],
+          disabled: !this.properties.searchInNewPage,
+          selectedKey: this.properties.queryPathBehavior
+        })
+      ]);
     }
 
-    /**
-     * Handler used to notify data source subscribers when the input query is updated
-     */
-    private _onSearch = (searchQuery: string): void => {
-
-        this._searchQuery = searchQuery;
-        this.context.dynamicDataSourceManager.notifyPropertyChanged('searchQuery');
-
-        // Save this value in a global context
-        GlobalSettings.setValue('searchBoxQuery', searchQuery);
-
-        // Update URL with raw search query
-        if (this.properties.useDynamicDataSource && this.properties.defaultQueryKeywords && this.properties.defaultQueryKeywords.reference) {
-
-            // this.properties.defaultQueryKeywords.reference
-            // "PageContext:UrlData:queryParameters.query"
-            const refChunks = this.properties.defaultQueryKeywords.reference.split(':');
-
-            if (refChunks.length >= 3) {
-                const paramType = refChunks[2];
-
-                if (paramType === 'fragment') {
-                    window.history.pushState(undefined, undefined, `#${searchQuery}`);
-                }
-                else if (paramType.startsWith('queryParameters')) {
-                    const paramChunks = paramType.split('.');
-                    const queryTextParam = paramChunks.length === 2 ? paramChunks[1] : 'q';
-                    const newUrl = UrlHelper.addOrReplaceQueryStringParam(window.location.href, queryTextParam, searchQuery);
-
-                    if (window.location.href !== newUrl) {
-                        window.history.pushState({ path: newUrl }, undefined, newUrl);
-                    }
-                }
+    if (this.properties.searchInNewPage && this.properties.queryPathBehavior === QueryPathBehavior.QueryParameter) {
+      searchBehaviorOptionsFields = searchBehaviorOptionsFields.concat([
+        PropertyPaneTextField('queryStringParameter', {
+          disabled: !this.properties.searchInNewPage || this.properties.searchInNewPage && this.properties.queryPathBehavior !== QueryPathBehavior.QueryParameter,
+          label: webPartStrings.PropertyPane.SearchBoxSettingsGroup.QueryStringParameterName,
+          onGetErrorMessage: (value) => {
+            if (this.properties.queryPathBehavior === QueryPathBehavior.QueryParameter) {
+              if (value === null ||
+                value.trim().length === 0) {
+                return webPartStrings.PropertyPane.SearchBoxSettingsGroup.QueryParameterNotEmpty;
+              }
             }
+            return '';
+          }
+        })
+      ]);
+    }
 
+    return searchBehaviorOptionsFields;
+  }
+
+  private getExtensibilityFields(): IPropertyPaneField<any>[] {
+
+    let extensibilityFields: IPropertyPaneField<any>[] = [
+     this._propertyFieldCollectionData('extensibilityLibraryConfiguration', {
+      manageBtnLabel: commonStrings.PropertyPane.InformationPage.Extensibility.ManageBtnLabel,
+      key: 'extensibilityLibraryConfiguration',
+      enableSorting: true,
+      panelHeader: webPartStrings.PropertyPane.InformationPage.Extensibility.PanelHeader,
+      panelDescription: webPartStrings.PropertyPane.InformationPage.Extensibility.PanelDescription,
+      label: commonStrings.PropertyPane.InformationPage.Extensibility.FieldLabel,
+      value: this.properties.extensibilityLibraryConfiguration,
+      fields: [
+        {
+          id: 'name',
+          title: commonStrings.PropertyPane.InformationPage.Extensibility.Columns.Name,
+          type: this._customCollectionFieldType.string
+        },
+        {
+          id: 'id',
+          title: commonStrings.PropertyPane.InformationPage.Extensibility.Columns.Id,
+          type: this._customCollectionFieldType.string,
+          onGetErrorMessage: this._validateGuid.bind(this)
+        },
+        {
+          id: 'enabled',
+          title: commonStrings.PropertyPane.InformationPage.Extensibility.Columns.Enabled,
+          type: this._customCollectionFieldType.custom,
+          required: true,
+          onCustomRender: (field, value, onUpdate, item, itemId) => {
+          return (
+                  React.createElement("div", null,
+                      React.createElement(Toggle, { 
+                          key: itemId, 
+                          checked: value,
+                          offText: commonStrings.General.OffTextLabel,
+                          onText: commonStrings.General.OnTextLabel, 
+                          onChange: ((evt, checked) => {
+                              onUpdate(field.id, checked);
+                          }).bind(this)} as IToggleProps)
+                  )
+              );
+          }
         }
+      ]
+     })
+    ];
+
+    return extensibilityFields;
+  }
+
+  /**
+   * Verifies if the string is a correct URL
+   * @param value the URL to verify
+   */
+  private _validatePageUrl(value: string) {
+
+    if ((!(/^(https?):\/\/[^\s/$.?#].[^\s]*/).test(value) || !value) && this.properties.searchInNewPage) {
+      return webPartStrings.PropertyPane.SearchBoxSettingsGroup.UrlErrorMessage;
     }
 
-    /**
-     * Verifies if the string is a correct URL
-     * @param value the URL to verify
-     */
-    private _validatePageUrl(value: string) {
+    return '';
+  }
 
-        if ((!(/^(https?):\/\/[^\s/$.?#].[^\s]*/).test(value) || !value) && this.properties.searchInNewPage) {
-            return strings.SearchBoxUrlErrorMessage;
+  /**
+   * Initializes required Web Part properties
+   */
+  private initializeProperties() {
+    this.properties.queryText = this.properties.queryText ? this.properties.queryText : new DynamicProperty<string>(this.context.dynamicDataProvider);
+
+    this.properties.openBehavior = this.properties.openBehavior ? this.properties.openBehavior : PageOpenBehavior.Self;
+    this.properties.queryPathBehavior = this.properties.queryPathBehavior ? this.properties.queryPathBehavior : QueryPathBehavior.URLFragment;
+
+    this.properties.suggestionProviderConfiguration = this.properties.suggestionProviderConfiguration ? this.properties.suggestionProviderConfiguration : [];
+    this.properties.numberOfSuggestionsPerGroup = this.properties.numberOfSuggestionsPerGroup ? this.properties.numberOfSuggestionsPerGroup : 10;
+
+    this.properties.providerProperties = this.properties.providerProperties ? this.properties.providerProperties : {};
+
+    this.properties.extensibilityLibraryConfiguration = this.properties.extensibilityLibraryConfiguration ? this.properties.extensibilityLibraryConfiguration : [{
+      name: commonStrings.General.Extensibility.DefaultExtensibilityLibraryName,
+      enabled: true,
+      id: Constants.DEFAULT_EXTENSIBILITY_LIBRARY_COMPONENT_ID
+    }];
+  }
+
+  private initializeWebPartServices(): void {    
+    this.webPartInstanceServiceScope = this.context.serviceScope.startNewChild();
+    this.dynamicDataService = this.webPartInstanceServiceScope.createAndProvide(DynamicDataService.ServiceKey, DynamicDataService);
+    this.dynamicDataService.dynamicDataProvider = this.context.dynamicDataProvider;
+    this.webPartInstanceServiceScope.finish();
+  }
+
+  /**
+   * Handler used to notify data source subscribers when the input query is updated
+   */
+  private _onSearch = (searchQuery: string): void => {
+
+      this._searchQueryText = searchQuery;
+
+      // Set the input query text globally for the page. There can be only one input query text submitted at a time even if multiple search box components are on the page
+      GlobalSettings.setValue(BuiltinTokenNames.inputQueryText, searchQuery);
+
+      this.context.dynamicDataSourceManager.notifyPropertyChanged(ComponentType.SearchBox);
+      this.context.dynamicDataSourceManager.notifySourceChanged();
+
+      // Update URL with raw search query
+      if (this.properties.useDynamicDataSource && this.properties.queryText && this.properties.queryText.reference) {
+
+        // this.properties.defaultQueryKeywords.reference
+        // "PageContext:UrlData:queryParameters.query"
+        const refChunks = this.properties.queryText.reference.split(':');
+
+        if (refChunks.length >= 3) {
+          const paramType = refChunks[2];
+
+          if (paramType === 'fragment') {
+            window.history.pushState(undefined, undefined, `#${searchQuery}`);
+          }
+          else if (paramType.indexOf('queryParameters') !== -1) {
+            const paramChunks = paramType.split('.');
+            const queryTextParam = paramChunks.length === 2 ? paramChunks[1] : 'q';
+            const newUrl = UrlHelper.addOrReplaceQueryStringParam(window.location.href, queryTextParam, searchQuery);
+
+            if (window.location.href !== newUrl) {
+              window.history.pushState({ path: newUrl }, undefined, newUrl);
+            }
+          }
         }
+      }
+  }
 
-        return '';
+  /**
+   * Subscribes to URL hash change if the dynamic property is set to the default 'URL Fragment' property
+   */
+  private _bindHashChange() {
+    
+    if (this.properties.queryText.tryGetSource() && this.properties.queryText.reference.localeCompare('PageContext:UrlData:fragment') === 0) {
+        // Manually subscribe to hash change since the default property doesn't
+        window.addEventListener('hashchange', this.render);
+    } else {
+        window.removeEventListener('hashchange', this.render);
     }
+  }
 
-    /**
-     * Initializes the query suggestions data provider instance according to the current environnement
-     */
-    private initSearchService() {
+  private async initializeSuggestionProviders(suggestionProviderConfiguration: ISuggestionProviderConfiguration[]): Promise<ISuggestionProvider[]> {
 
-        if (this.properties.enableQuerySuggestions) {
-            if (Environment.type === EnvironmentType.Local) {
-                this._searchService = new MockSearchService();
-            } else {
-                this._searchService = new SearchService(this.context.pageContext, this.context.spHttpClient);
-                return "";
-            }
-        }
-    }
+    const promises: Promise<ISuggestionProvider>[] = [];
+    let selectedProviders: ISuggestionProvider[] = [];
+    
+    suggestionProviderConfiguration.forEach(configuration => {
+      if (configuration.enabled) {
+        promises.push(this.getSuggestionProviderInstance(configuration.key, this.availableCustomProviders));
+      }
+    });
 
-    private async initSuggestionProviders(): Promise<void> {
+    if (promises.length > 0) {
+      selectedProviders = await Promise.all(promises); 
+    } else {
+      selectedProviders = [];
+    } 
+    
+    return selectedProviders;
+  }
 
-        this.properties.suggestionProviders = await this.getAllSuggestionProviders();
+  /**
+   * Gets the suggestion provider instance according to the selected one
+   * @param providerKey the selected suggestion provider provider key
+   * @param suggestionProviderDefinitions the available source definitions
+   * @returns the data source provider instance
+   */
+  private async getSuggestionProviderInstance(providerKey: string, suggestionProviderDefinitions: ISuggestionProviderDefinition[]): Promise<ISuggestionProvider> {
+        
+    let suggestionsProvider: ISuggestionProvider = undefined;
+    let serviceKey: ServiceKey<ISuggestionProvider> = undefined;
 
-        this._suggestionProviderInstances = await this.initSuggestionProviderInstances(this.properties.suggestionProviders);
+    if (providerKey) {
 
-    }
+      switch (providerKey) {
 
-    private async getAllSuggestionProviders(): Promise<ISuggestionProviderDefinition<any>[]> {
-        const [defaultProviders, customProviders] = await Promise.all([
-            this.getDefaultSuggestionProviders(),
-            this.getCustomSuggestionProviders()
-        ]);
+          // SharePoint Search static suggestions
+          case BuiltinSuggestionProviderKeys.SharePointStaticSuggestions:
 
-        //Track if we have any custom suggestion providers
-        if (customProviders && customProviders.length > 0) {
-            this._foundCustomSuggestionProviders = true;
-        }
-
-        //Merge all providers together and set defaults
-        const savedProviders = this.properties.suggestionProviders && this.properties.suggestionProviders.length > 0 ? this.properties.suggestionProviders : [];
-        const providerDefinitions = [...defaultProviders, ...customProviders].map(provider => {
-            const existingSavedProvider = find(savedProviders, sp => sp.providerName === provider.providerName);
-
-            provider.providerEnabled = existingSavedProvider && undefined !== existingSavedProvider.providerEnabled
-                ? existingSavedProvider.providerEnabled
-                : undefined !== provider.providerEnabled
-                    ? provider.providerEnabled
-                    : true;
-
-            return provider;
-        });
-        return providerDefinitions;
-    }
-
-    private async getDefaultSuggestionProviders(): Promise<ISuggestionProviderDefinition<any>[]> {
-        return [{
-            providerName: SharePointDefaultSuggestionProvider.ProviderName,
-            providerDisplayName: SharePointDefaultSuggestionProvider.ProviderDisplayName,
-            providerDescription: SharePointDefaultSuggestionProvider.ProviderDescription,
-            providerClass: SharePointDefaultSuggestionProvider
-        }];
-    }
-
-    private async getCustomSuggestionProviders(): Promise<ISuggestionProviderDefinition<any>[]> {
-        let customSuggestionProviders: ISuggestionProviderDefinition<any>[] = [];
-
-        // Load extensibility library if present
-        const extensibilityLibrary = await this._extensibilityService.loadExtensibilityLibrary();
-
-        // Load extensibility additions
-        if (extensibilityLibrary && extensibilityLibrary.getCustomSuggestionProviders) {
-
-            // Add custom suggestion providers if any
-            customSuggestionProviders = extensibilityLibrary.getCustomSuggestionProviders();
-        }
-
-        return customSuggestionProviders;
-    }
-
-    private async initSuggestionProviderInstances(providerDefinitions: ISuggestionProviderDefinition<any>[]): Promise<ISuggestionProviderInstance<any>[]> {
-
-        const webpartContext = this.context;
-
-        let providerInstances = await Promise.all(providerDefinitions.map<Promise<ISuggestionProviderInstance<any>>>(async (provider) => {
-            let isInitialized = false;
-            let instance: BaseSuggestionProvider = null;
-
-            try {
-                instance = ObjectCreator.createEntity(provider.providerClass, webpartContext);
-                await instance.onInit();
-                isInitialized = true;
-            }
-            catch (error) {
-                console.log(`Unable to initialize '${provider.providerName}'. ${error}`);
-            }
-            finally {
-                return {
-                    ...provider,
-                    instance,
-                    isInitialized
-                };
-            }
-        }));
-
-        // Keep only the onces that initialized successfully
-        providerInstances = providerInstances.filter(pi => pi.isInitialized);
-
-        return providerInstances;
-    }
-
-    protected get propertiesMetadata(): IWebPartPropertiesMetadata {
-        return {
-            'defaultQueryKeywords': {
-                dynamicPropertyType: 'string'
-            }
-        };
-    }
-
-    protected async loadPropertyPaneResources(): Promise<void> {
-
-        const { PropertyFieldCollectionData, CustomCollectionFieldType } = await import(
-            /* webpackChunkName: 'search-property-pane' */
-            '@pnp/spfx-property-controls/lib/PropertyFieldCollectionData'
-        );
-        this._propertyFieldCollectionData = PropertyFieldCollectionData;
-        this._customCollectionFieldType = CustomCollectionFieldType;
-    }
-
-    /**
-     * Determines the group fields for the search query options inside the property pane
-     */
-    private _getSearchQueryFields(): IPropertyPaneField<any>[] {
-
-        // Sets up search query fields
-        let searchQueryConfigFields: IPropertyPaneField<any>[] = [
-            PropertyPaneCheckbox('useDynamicDataSource', {
-                checked: false,
-                text: strings.DynamicData.UseDynamicDataSourceLabel,
-            })
-        ];
-
-        if (this.properties.useDynamicDataSource) {
-            searchQueryConfigFields.push(
-                PropertyPaneDynamicFieldSet({
-                    label: strings.DynamicData.DefaultQueryKeywordsPropertyLabel,
-                    fields: [
-                        PropertyPaneDynamicField('defaultQueryKeywords', {
-                            label: strings.DynamicData.DefaultQueryKeywordsPropertyLabel,
-                        })
-                    ],
-                    sharedConfiguration: {
-                        depth: DynamicDataSharedDepth.Source,
-                    }
-                })
+            const { SharePointSuggestionProvider } = await import(
+              /* webpackChunkName: 'sharepoint-static-suggestions' */
+              '../../providers/SharePointSuggestionProvider'
             );
-        }
 
-        return searchQueryConfigFields;
-    }
+            serviceKey = ServiceKey.create<ISuggestionProvider>('ModernSearchSharePointStaticSuggestionProvider', SharePointSuggestionProvider);
+            break;
 
-    /**
-     * Determines the group fields for the search options inside the property pane
-     */
-    private _getSearchBehaviorOptionsFields(): IPropertyPaneField<any>[] {
+          // Custom provider
+          default:
 
-        let searchBehaviorOptionsFields: IPropertyPaneField<any>[] = [
-            PropertyPaneToggle("enableQuerySuggestions", {
-                checked: false,
-                label: strings.SearchBoxEnableQuerySuggestions
-            }),
-        ];
+            // Gets the registered service key according to the selected provider definition 
+            const matchingDefinitions = suggestionProviderDefinitions.filter((provider) => { return provider.key === providerKey; });
 
-        if (this._foundCustomSuggestionProviders) {
-            searchBehaviorOptionsFields = searchBehaviorOptionsFields.concat([
-                this._propertyFieldCollectionData('suggestionProviders', {
-                    manageBtnLabel: strings.SuggestionProviders.EditSuggestionProvidersLabel,
-                    key: 'suggestionProviders',
-                    panelHeader: strings.SuggestionProviders.EditSuggestionProvidersLabel,
-                    panelDescription: strings.SuggestionProviders.SuggestionProvidersDescription,
-                    disableItemCreation: true,
-                    disableItemDeletion: true,
-                    disabled: !this.properties.enableQuerySuggestions,
-                    label: strings.SuggestionProviders.SuggestionProvidersLabel,
-                    value: this.properties.suggestionProviders,
-                    fields: [
-                        {
-                            id: 'providerEnabled',
-                            title: strings.SuggestionProviders.EnabledPropertyLabel,
-                            type: this._customCollectionFieldType.custom,
-                            onCustomRender: (field, value, onUpdate, item, itemId) => {
-                                return (
-                                    React.createElement("div", null,
-                                        React.createElement(Toggle, {
-                                            key: itemId, checked: value, onChange: (evt, checked) => {
-                                                onUpdate(field.id, checked);
-                                            }
-                                        })
-                                    )
-                                );
-                            }
-                        },
-                        {
-                            id: 'providerDisplayName',
-                            title: strings.SuggestionProviders.ProviderNamePropertyLabel,
-                            type: this._customCollectionFieldType.custom,
-                            onCustomRender: (field, value) => {
-                                return (
-                                    React.createElement("div", { style: { 'fontWeight': 600 } }, value)
-                                );
-                            }
-                        },
-                        {
-                            id: 'providerDescription',
-                            title: strings.SuggestionProviders.ProviderDescriptionPropertyLabel,
-                            type: this._customCollectionFieldType.custom,
-                            onCustomRender: (field, value) => {
-                                return (
-                                    React.createElement("div", null, value)
-                                );
-                            }
-                        }
-                    ]
-                })
-            ]);
-        }
+            // Can only have one data source instance per key
+            if (matchingDefinitions.length > 0) {
+              serviceKey = matchingDefinitions[0].serviceKey;
+            } else {
+              // Case when the extensibility library is removed from the catalog or the configuration
+              throw new Error(Text.format(commonStrings.General.Extensibility.ProviderDefinitionNotFound, providerKey));
+            }
 
-        searchBehaviorOptionsFields = searchBehaviorOptionsFields.concat([
-            PropertyPaneHorizontalRule(),
-            PropertyPaneTextField('placeholderText', {
-                label: strings.SearchBoxPlaceholderTextLabel
-            }),
-            PropertyPaneHorizontalRule(),
-            PropertyPaneToggle("searchInNewPage", {
-                checked: false,
-                label: strings.SearchBoxSearchInNewPageLabel
-            })
+            break;
+      }
+
+      return new Promise<ISuggestionProvider>((resolve, reject) => {
+
+        const childServiceScope = ServiceScopeHelper.registerChildServices(this.webPartInstanceServiceScope, [
+          serviceKey
         ]);
 
-        if (this.properties.searchInNewPage) {
-            searchBehaviorOptionsFields = searchBehaviorOptionsFields.concat([
-                PropertyPaneTextField('pageUrl', {
-                    disabled: !this.properties.searchInNewPage,
-                    label: strings.SearchBoxPageUrlLabel,
-                    onGetErrorMessage: this._validatePageUrl.bind(this)
-                }),
-                PropertyPaneDropdown('openBehavior', {
-                    label: strings.SearchBoxPageOpenBehaviorLabel,
-                    options: [
-                        { key: PageOpenBehavior.Self, text: strings.SearchBoxSameTabOpenBehavior },
-                        { key: PageOpenBehavior.NewTab, text: strings.SearchBoxNewTabOpenBehavior }
-                    ],
-                    disabled: !this.properties.searchInNewPage,
-                    selectedKey: this.properties.openBehavior
-                }),
-                PropertyPaneDropdown('queryPathBehavior', {
-                    label: strings.SearchBoxQueryPathBehaviorLabel,
-                    options: [
-                        { key: QueryPathBehavior.URLFragment, text: strings.SearchBoxUrlFragmentQueryPathBehavior },
-                        { key: QueryPathBehavior.QueryParameter, text: strings.SearchBoxQueryStringQueryPathBehavior }
-                    ],
-                    disabled: !this.properties.searchInNewPage,
-                    selectedKey: this.properties.queryPathBehavior
-                })
-            ]);
+        childServiceScope.whenFinished(async () => {
+
+          suggestionsProvider = childServiceScope.consume<ISuggestionProvider>(serviceKey);
+
+          // Verifiy if the layout implements correctly the ILayout interface and BaseLayout methods
+          const isValidProvider = (providerInstance: ISuggestionProvider): providerInstance is BaseSuggestionProvider<any> => {
+            return (
+                (providerInstance as BaseSuggestionProvider<any>).getPropertyPaneGroupsConfiguration !== undefined &&
+                (providerInstance as BaseSuggestionProvider<any>).getSuggestions !== undefined &&
+                (providerInstance as BaseSuggestionProvider<any>).onPropertyUpdate !== undefined &&
+                (providerInstance as BaseSuggestionProvider<any>).onInit !== undefined
+            );
+          };
+
+          if (!isValidProvider(suggestionsProvider)) {
+              reject(new Error(Text.format(commonStrings.General.Extensibility.InvalidProviderInstance, providerKey)));
+          }
+
+          // Initialize the provider
+          if (suggestionsProvider) {
+
+            suggestionsProvider.properties = this.properties.providerProperties;
+            suggestionsProvider.context = this.context;
+            await suggestionsProvider.onInit();
+
+            resolve(suggestionsProvider);
+          }
+        });
+      });          
+    }
+  }
+
+  /**
+   * Loads extensions from registered extensibility librairies
+   */
+  private async loadExtensions(librariesConfiguration: IExtensibilityConfiguration[]) {
+
+    this.properties.suggestionProviderConfiguration = [];
+
+      // Load extensibility library if present
+      const extensibilityLibraries = await this.extensibilityService.loadExtensibilityLibraries(librariesConfiguration);
+
+      // Load extensibility additions
+      if (extensibilityLibraries.length > 0) {
+        
+        extensibilityLibraries.forEach(extensibilityLibrary => {
+          // Add custom suggestions providers if any
+          this.availableCustomProviders = this.availableCustomProviders.concat(extensibilityLibrary.getCustomSuggestionProviders());
+        });
+      }
+
+      // Resolve the provider configuration for the property pane according to providers
+      this.availableCustomProviders.forEach(provider => {
+        if (this.properties.suggestionProviderConfiguration.filter(p => p.key === provider.key).length === 0) {
+          this.properties.suggestionProviderConfiguration = this.properties.suggestionProviderConfiguration.concat({
+            key: provider.key,
+            description: provider.description,
+            enabled: false,
+            name: provider.name
+          });
         }
+      });
+  }
 
-        if (this.properties.searchInNewPage && this.properties.queryPathBehavior === QueryPathBehavior.QueryParameter) {
-            searchBehaviorOptionsFields = searchBehaviorOptionsFields.concat([
-                PropertyPaneTextField('queryStringParameter', {
-                    disabled: !this.properties.searchInNewPage || this.properties.searchInNewPage && this.properties.queryPathBehavior !== QueryPathBehavior.QueryParameter,
-                    label: strings.SearchBoxQueryStringParameterName,
-                    onGetErrorMessage: (value) => {
-                        if (this.properties.queryPathBehavior === QueryPathBehavior.QueryParameter) {
-                            if (value === null ||
-                                value.trim().length === 0) {
-                                return strings.SearchBoxQueryParameterNotEmpty;
-                            }
-                        }
-                        return '';
-                    }
-                })
-            ]);
-        }
-
-        return searchBehaviorOptionsFields;
-    }
-
-    /**
-     * Subscribes to URL hash change if the dynamic property is set to the default 'URL Fragment' property
-     */
-    private _bindHashChange() {
-        if (this.properties.defaultQueryKeywords.tryGetSource() && this.properties.defaultQueryKeywords.reference.localeCompare('PageContext:UrlData:fragment') === 0) {
-            // Manually subscribe to hash change since the default property doesn't
-            window.addEventListener('hashchange', this.render);
-        } else {
-            window.removeEventListener('hashchange', this.render);
-        }
-
-    }
-
-    /**
-     * Subscribes to URL query string change events
-     */
-    private _handleQueryStringChange() {
-        ((h) => {
-            this._ops = history.pushState;
-            h.pushState = (state, key, path) => {
-                this._ops.apply(history, [state, key, path]);
-                this.render();
-            };
-        })(window.history);
-    }
-
-    /**
-     * Initializes theme variant properties
-     */
-    private initThemeVariant(): void {
-
-        // Consume the new ThemeProvider service
-        this._themeProvider = this.context.serviceScope.consume(ThemeProvider.serviceKey);
-
-        // If it exists, get the theme variant
-        this._themeVariant = this._themeProvider.tryGetTheme();
-
-        // Register a handler to be notified if the theme variant changes
-        this._themeProvider.themeChangedEvent.add(this, this._handleThemeChangedEvent.bind(this));
-    }
-
-    /**
-     * Update the current theme variant reference and re-render.
-     * @param args The new theme
-     */
-    private _handleThemeChangedEvent(args: ThemeChangedEventArgs): void {
-        if (!isEqual(this._themeVariant, args.theme)) {
-            this._themeVariant = args.theme;
-            this.render();
+  /**
+   * Ensures the string value is a valid GUID
+   * @param value the result source id
+   */
+  private _validateGuid(value: string): string {
+    if (value.length > 0) {
+        if (!(/^(\{){0,1}[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}(\}){0,1}$/).test(value)) {
+            return 'Invalid GUID';
         }
     }
+
+    return '';
+  }
 }

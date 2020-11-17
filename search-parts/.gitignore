@@ -2,7 +2,7 @@
 logs
 *.log
 npm-debug.log*
-yarn-error.log*
+test-results.xml
 
 # Dependency directories
 node_modules
@@ -33,12 +33,5 @@ obj
 *.scss.ts
 *.scss.d.ts
 
-# compiled output
-dist/
-
-# documentation
-site/
-
-# build tools
-coverage/
-test-report.xml
+# Pnpm lock file
+pnpm-lock.yaml

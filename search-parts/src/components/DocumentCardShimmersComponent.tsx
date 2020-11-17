@@ -1,9 +1,8 @@
 import * as React from "react";
-import { Shimmer, ShimmerElementType as ElemType, ShimmerElementsGroup } from 'office-ui-fabric-react/lib/Shimmer';
-import { BaseWebComponent } from "./BaseWebComponent";
+import { Shimmer, ShimmerElementType as ElemType, ShimmerElementsGroup, ITheme } from 'office-ui-fabric-react';
 import * as ReactDOM from 'react-dom';
+import { BaseWebComponent } from '@pnp/modern-search-extensibility';
 import { IReadonlyTheme } from "@microsoft/sp-component-base";
-import { ITheme } from "@uifabric/styling";
 
 export interface DocumentCardShimmersComponentProps {
 
@@ -209,4 +208,4 @@ export class DocumentCardShimmersWebComponent extends BaseWebComponent {
        const documentCarditem = <DocumentCardShimmersComponent {...props}/>;
        ReactDOM.render(documentCarditem, this);
     }    
- }
+}

@@ -1,6 +1,5 @@
 /**
  * This class help you to translate the current culture name into LCID and vice versa
- * Useful for TaxonomyProvider or other data providers requiring lcid instead culture name.
  * The class logic is directly inspired from the official SPFx documentation https://docs.microsoft.com/en-us/sharepoint/dev/spfx/web-parts/guidance/localize-web-parts
  */
 class LocalizationHelper {

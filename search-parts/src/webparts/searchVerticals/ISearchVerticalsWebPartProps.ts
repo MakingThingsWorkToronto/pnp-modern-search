@@ -1,25 +1,15 @@
-import { ISearchVertical } from "../../models/ISearchVertical";
+import { IBaseWebPartProps } from "../../models/common/IBaseWebPartProps";
+import { IDataVertical } from "../../models/common/IDataVertical";
 
-export interface ISearchVerticalsWebPartProps {
-    
-    /**
-     * The configured search verticals 
-     */
-    verticals: ISearchVertical[];
+export interface ISearchVerticalsWebPartProps extends IBaseWebPartProps {
 
     /**
-     * Indicates if we should display result counts
+     * The Web Part title
      */
-    showCounts: boolean;
+    title: string;
 
     /**
-     * Indicates which querystring parameter we need to try and get
+     * The configured data verticals 
      */
-    defaultVerticalQuerystringParam: string;
-
-    /**
-     * The connected search results Web Part data source refrence
-     */
-    searchResultsDataSourceReference: string;
+    verticals: IDataVertical[];
 }
-  

@@ -1,12 +1,12 @@
 import * as React from 'react';
-import * as strings from 'SearchBoxWebPartStrings';
-import styles from '../SearchBoxWebPart.module.scss';
+import styles from '../SearchBoxContainer.module.scss';
 import { ISearchBoxAutoCompleteState } from './ISearchBoxAutoCompleteState';
 import { ISearchBoxAutoCompleteProps } from './ISearchBoxAutoCompleteProps';
-import { Spinner, SpinnerSize, Text, FocusZone, FocusZoneDirection, SearchBox, IconButton, Label, Icon, IconType } from 'office-ui-fabric-react';
+import { Spinner, SpinnerSize, FocusZone, FocusZoneDirection, SearchBox, IconButton, Label, Icon, IconType } from 'office-ui-fabric-react';
 import { ITheme } from 'office-ui-fabric-react/lib/Styling';
 import { isEqual, debounce } from '@microsoft/sp-lodash-subset';
-import { ISuggestion } from '../../../../models/ISuggestion';
+import { ISuggestion } from '@pnp/modern-search-extensibility';
+import * as webPartStrings from 'SearchBoxWebPartStrings';
 import * as DOMPurify from 'dompurify';
 
 const SUGGESTION_CHAR_COUNT_TRIGGER = 2;
@@ -45,7 +45,7 @@ export default class SearchBoxAutoComplete extends React.Component<ISearchBoxAut
     if (this.state.proposedQuerySuggestions.length > 0) {
 
       const suggestionGroups = this.state.proposedQuerySuggestions.reduce<{[key: string]: { groupName: string, suggestions: { suggestion: ISuggestion, index: number }[] }}>((groups, suggestion, index) => {
-          const groupName = suggestion && suggestion.groupName ? suggestion.groupName.trim() : strings.SuggestionProviders.DefaultSuggestionGroupName;
+          const groupName = suggestion && suggestion.groupName ? suggestion.groupName.trim() : webPartStrings.PropertyPane.QuerySuggestionsGroup.DefaultSuggestionGroupName;
           if (!groups[groupName]) {
             groups[groupName] = {
               groupName,
@@ -59,9 +59,14 @@ export default class SearchBoxAutoComplete extends React.Component<ISearchBoxAut
       let indexIncrementer = -1;
       const renderedSuggestionGroups = Object.keys(suggestionGroups).map(groupName => {
         const currentGroup = suggestionGroups[groupName];
-        const renderedSuggestions = currentGroup.suggestions.map(item => {
-          indexIncrementer++;
-          return this._renderSuggestion(item.suggestion, indexIncrementer);
+        let renderedSuggestions: JSX.Element[] = [];
+        
+        currentGroup.suggestions.forEach((item, i) => {
+
+          if (i <this.props.numberOfSuggestionsPerGroup) {
+            indexIncrementer++;
+            renderedSuggestions.push(this._renderSuggestion(item.suggestion, indexIncrementer));
+          }
         });
 
         return (
@@ -88,7 +93,7 @@ export default class SearchBoxAutoComplete extends React.Component<ISearchBoxAut
     const suggestionInner = <>
       <div className={styles.suggestionContainer}>
         <div className={styles.suggestionIcon}>
-          {suggestion.icon && <img src={suggestion.icon} />}
+          {suggestion.iconSrc && <img src={suggestion.iconSrc} />}
         </div>
         <div className={styles.suggestionContent}>
           <span className={styles.suggestionDisplayText} dangerouslySetInnerHTML={{ __html: DOMPurify.default.sanitize(suggestion.displayText) }}></span>
@@ -157,9 +162,7 @@ export default class SearchBoxAutoComplete extends React.Component<ISearchBoxAut
 
           const allProviderPromises = this.props.suggestionProviders.map(async (provider) => {
 
-            // Verify we have a valid suggestion provider and it is enabled
-            if (provider && provider.providerEnabled && provider.instance.isSuggestionsEnabled) {
-              let suggestions = await provider.instance.getSuggestions(trimmedInputValue);
+              let suggestions = await provider.getSuggestions(trimmedInputValue);
 
               // Verify before updating proposed suggestions
               //  1) the input value hasn't been searched
@@ -172,8 +175,6 @@ export default class SearchBoxAutoComplete extends React.Component<ISearchBoxAut
                   isRetrievingSuggestions: false
                 });
               }
-            }
-
           });
 
           // After all suggestion providers have finished, hide the loading indicator if it hasn't already been hid
@@ -225,7 +226,7 @@ export default class SearchBoxAutoComplete extends React.Component<ISearchBoxAut
     if ((!this.state.hasRetrievedZeroTermSuggestions && !this.state.isRetrievingZeroTermSuggestions) || forceUpdate) {
 
       // Verify we have at least one suggestion provider that has isZeroTermSuggestionsEnabled
-      if (this.props.suggestionProviders && this.props.suggestionProviders.some(sgp => sgp.instance && sgp.instance.isZeroTermSuggestionsEnabled)) {
+      if (this.props.suggestionProviders && this.props.suggestionProviders.some(sgp => sgp.isZeroTermSuggestionsEnabled)) {
         this.setState({
           zeroTermQuerySuggestions: [],
           isRetrievingZeroTermSuggestions: true,
@@ -235,8 +236,8 @@ export default class SearchBoxAutoComplete extends React.Component<ISearchBoxAut
           let zeroTermSuggestions = [];
 
           // Verify we have a valid suggestion provider and it is enabled
-          if (provider && provider.providerEnabled && provider.instance.isZeroTermSuggestionsEnabled) {
-            zeroTermSuggestions = await provider.instance.getZeroTermSuggestions();
+          if (provider && provider.isZeroTermSuggestionsEnabled) {
+            zeroTermSuggestions = await provider.getZeroTermSuggestions();
           }
 
           return zeroTermSuggestions;
@@ -253,6 +254,7 @@ export default class SearchBoxAutoComplete extends React.Component<ISearchBoxAut
       }
       else {
         this.setState({
+          zeroTermQuerySuggestions: [],
           hasRetrievedZeroTermSuggestions: true,
         });
       }
@@ -315,7 +317,7 @@ export default class SearchBoxAutoComplete extends React.Component<ISearchBoxAut
     }
   }
 
-  private _handleOnFocus = (evt) => {
+  private _handleOnFocus = () => {
     if (!this.state.searchInputValue) {
       this._showZeroTermSuggestions();
     }
@@ -355,6 +357,13 @@ export default class SearchBoxAutoComplete extends React.Component<ISearchBoxAut
      || !isEqual(prevProps.suggestionProviders, this.props.suggestionProviders)) {
       this._ensureZeroTermQuerySuggestions(true);
     }
+
+    if (!isEqual(prevProps.inputValue,this.props.inputValue)) {
+      // Reset the inout value
+      this.setState({
+        searchInputValue: this.props.inputValue
+      });
+    }
   }
 
   public render(): React.ReactElement<ISearchBoxAutoCompleteProps> {
@@ -381,7 +390,7 @@ export default class SearchBoxAutoComplete extends React.Component<ISearchBoxAut
         >
           <div className={styles.searchBoxWrapper}>
             <SearchBox
-              placeholder={this.props.placeholderText ? this.props.placeholderText : strings.SearchInputPlaceholder}
+              placeholder={this.props.placeholderText ? this.props.placeholderText : webPartStrings.SearchBox.DefaultPlaceholder}
               theme={this.props.themeVariant as ITheme}
               className={ styles.searchTextField }
               value={ this.state.searchInputValue }

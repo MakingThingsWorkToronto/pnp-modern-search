@@ -1,21 +1,14 @@
 import * as React from 'react';
 import { Suspense } from 'react';
-import * as strings from 'SearchResultsWebPartStrings';
 const TextDialog = React.lazy(() => import('../TextDialog/TextDialog'));
 import { ICustomCollectionField } from '@pnp/spfx-property-controls/lib/PropertyFieldCollectionData';
-import { SearchManagedProperties } from '../SearchManagedProperties/SearchManagedProperties';
-import { IComboBoxOption } from 'office-ui-fabric-react/lib/ComboBox';
-import ISearchService from '../../services/SearchService/ISearchService';
+import { ComboBox, IComboBoxOption } from 'office-ui-fabric-react';
+import * as strings from 'CommonStrings';
 
 export interface ITemplateValueFieldEditorState {
 }
 
 export interface ITemplateValueFieldEditorProps {
-
-    /**
-     * The search service instance
-     */
-    searchService: ISearchService;
 
     /**
      * The field mode to render
@@ -43,26 +36,9 @@ export interface ITemplateValueFieldEditorProps {
     value: any;
 
     /**
-     * Handler to validate the field at row level
-     * @param fieldId the field id
-     * @param errorMsg the error message to display
-     */
-    onCustomFieldValidation(fieldId: string, errorMsg: string);
-
-    /**
-     * Callback when the list of managed properties is fetched by the control
-     */
-    onUpdateAvailableProperties: (properties: IComboBoxOption[]) => void;
-
-    /**
-     * The list of available manged properties
+     * The list of available item properties
      */
     availableProperties: IComboBoxOption[];
-
-    /**
-     * Indicates whether or not we should check if the selected proeprty is sortable or not
-     */
-    validateSortable?: boolean;
 }
 
 export class TemplateValueFieldEditor extends React.Component<ITemplateValueFieldEditorProps, ITemplateValueFieldEditorState> {
@@ -77,40 +53,33 @@ export class TemplateValueFieldEditor extends React.Component<ITemplateValueFiel
 
         if (this.props.useHandlebarsExpr) {
             let lang: any = "handlebars";
-            renderField = <Suspense fallback={""}><TextDialog
-                language={lang}
-                dialogTextFieldValue={this.props.value}
-                onChanged={(fieldValue) => {
-                    this.props.onUpdate(this.props.field.id, fieldValue);
-                }}
-                strings={{
-                    cancelButtonText: strings.CancelButtonText,
-                    dialogButtonText: "Edit Handlebars expression",
-                    dialogTitle: "Add Handlebars expression",
-                    saveButtonText: strings.SaveButtonText
-                }}
-            /></Suspense>;
+            renderField =   <Suspense fallback={""}>
+                                <TextDialog
+                                    language={lang}
+                                    dialogTextFieldValue={this.props.value}
+                                    onChanged={(fieldValue) => {
+                                        this.props.onUpdate(this.props.field.id, fieldValue);
+                                    }}
+                                    strings={{
+                                        cancelButtonText: strings.Controls.TextDialogCancelButtonText,
+                                        dialogButtonText: strings.Controls.TextDialogButtonText ,
+                                        dialogTitle: strings.Controls.TextDialogTitle,
+                                        saveButtonText: strings.Controls.TextDialogSaveButtonText
+                                    }}
+                                />
+                            </Suspense>;
         } else {
 
-            renderField = <SearchManagedProperties
-                defaultSelectedKey={this.props.value}
-                onUpdate={(newValue: string, isSortable?: boolean) => {
-
-                    if (this.props.validateSortable) {
-                        if (!isSortable) {
-                            this.props.onCustomFieldValidation(this.props.field.id, strings.Sort.SortInvalidSortableFieldMessage);
-                        } else {
-                            this.props.onUpdate(this.props.field.id, newValue);
-                            this.props.onCustomFieldValidation(this.props.field.id, '');
-                        }
-                    } else {
-                        this.props.onUpdate(this.props.field.id, newValue);
-                    }
+            renderField = <ComboBox
+                text={ this.props.value }
+                allowFreeform={false}
+                autoComplete='on'                                
+                onChange={(ev, option: IComboBoxOption) => {
+                    this.props.onUpdate(this.props.field.id, option.key);
                 }}
-                availableProperties={this.props.availableProperties}
-                onUpdateAvailableProperties={this.props.onUpdateAvailableProperties}
-                searchService={this.props.searchService}
-                validateSortable={this.props.validateSortable}
+                useComboBoxAsMenuWidth={true}
+                options={ this.props.availableProperties }
+                placeholder={ strings.Controls.SelectItemComboPlaceHolder }
             />;
         }
 

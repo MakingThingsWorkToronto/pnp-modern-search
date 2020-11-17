@@ -15,10 +15,7 @@
         "webpack:///.././src/*": "${webRoot}/src/*",
         "webpack:///../../../src/*": "${webRoot}/src/*",
         "webpack:///../../../../src/*": "${webRoot}/src/*",
-        "webpack:///../../../../../../src/*": "${webRoot}/src/*",
-        "webpack:///../../../../../../../src/*": "${webRoot}/src/*",
-        "webpack:///../../../../../../../../src/*": "${webRoot}/src/*",
-        "webpack:///../../../../../../../../../src/*": "${webRoot}/src/*",
+        "webpack:///../../../../../src/*": "${webRoot}/src/*"
       },
       "runtimeArgs": [
         "--remote-debugging-port=9222"
@@ -28,22 +25,32 @@
       "name": "Hosted workbench",
       "type": "chrome",
       "request": "launch",
-      "url": "https://collaborationcorner.sharepoint.com/teams/PnPIntranet/_layouts/15/workbench.aspx",
+      "url": "https://collaborationcorner.sharepoint.com/teams/PnPIntranet/_layouts/workbench.aspx",
       "webRoot": "${workspaceRoot}",
       "sourceMaps": true,
       "sourceMapPathOverrides": {
         "webpack:///.././src/*": "${webRoot}/src/*",
         "webpack:///../../../src/*": "${webRoot}/src/*",
         "webpack:///../../../../src/*": "${webRoot}/src/*",
-        "webpack:///../../../../../../src/*": "${webRoot}/src/*",
-        "webpack:///../../../../../../../src/*": "${webRoot}/src/*",
-        "webpack:///../../../../../../../../src/*": "${webRoot}/src/*",
-        "webpack:///../../../../../../../../../src/*": "${webRoot}/src/*"
+        "webpack:///../../../../../src/*": "${webRoot}/src/*"
       },
       "runtimeArgs": [
         "--remote-debugging-port=9222",
-        "-incognito"
+        "--incognito"
       ]
+    },
+    {
+      "name": "GulpTester",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceRoot}/node_modules/gulp/bin/gulp.js",
+      "stopOnEntry": false,
+      "args": [],
+      "cwd": "${workspaceRoot}",
+      "runtimeArgs": [
+          "--nolazy"
+      ],
+      "console": "internalConsole",
     }
   ]
 }
