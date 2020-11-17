@@ -17,7 +17,7 @@ import { IDataVertical } from '../../models/common/IDataVertical';
 import { IDynamicDataCallables, IDynamicDataPropertyDefinition } from '@microsoft/sp-dynamic-data';
 import { IDataVerticalSourceData } from '../../models/dynamicData/IDataVerticalSourceData';
 import { PageOpenBehavior } from '../../helpers/UrlHelper';
-import { TokenService } from '../../services/tokenService/TokenService';
+import { TokenService } from '../../services/TokenService/TokenService';
 import { ITokenService } from '@pnp/modern-search-extensibility';
 import { BaseWebPart } from '../../common/BaseWebPart';
 

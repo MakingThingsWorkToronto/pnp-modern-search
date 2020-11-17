@@ -1,5 +1,5 @@
 import { IDataFilter, IDataFilterConfiguration, FilterType, IDataFilterResult } from "@pnp/modern-search-extensibility";
-import { BuiltinTokenNames } from "../services/tokenService/TokenService";
+import { BuiltinTokenNames } from "../services/TokenService/TokenService";
 
 export class DataFilterHelper {
 

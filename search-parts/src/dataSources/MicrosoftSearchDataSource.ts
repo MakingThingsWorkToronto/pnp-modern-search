@@ -2,7 +2,7 @@ import { BaseDataSource, IDataSourceData, ITemplateSlot, BuiltinTemplateSlots, I
 import { IPropertyPaneGroup, PropertyPaneLabel } from "@microsoft/sp-property-pane";
 import { cloneDeep } from '@microsoft/sp-lodash-subset';
 import { MSGraphClientFactory } from "@microsoft/sp-http";
-import { TokenService } from "../services/tokenService/TokenService";
+import { TokenService } from "../services/TokenService/TokenService";
 import { ServiceScope } from '@microsoft/sp-core-library';
 import { IComboBoxOption } from 'office-ui-fabric-react';
 import { PropertyPaneAsyncCombo } from "../controls/PropertyPaneAsyncCombo/PropertyPaneAsyncCombo";

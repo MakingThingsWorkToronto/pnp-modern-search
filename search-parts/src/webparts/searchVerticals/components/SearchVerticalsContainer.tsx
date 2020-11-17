@@ -6,7 +6,7 @@ import { ITheme } from '@uifabric/styling';
 import { WebPartTitle } from '@pnp/spfx-controls-react/lib/WebPartTitle';
 import { PageOpenBehavior } from '../../../helpers/UrlHelper';
 import { ISearchVerticalsContainerState } from './ISearchVerticalsContainerState';
-import { BuiltinTokenNames } from '../../../services/tokenService/TokenService';
+import { BuiltinTokenNames } from '../../../services/TokenService/TokenService';
 
 export default class SearchVerticalsContainer extends React.Component<ISearchVerticalsContainerProps, ISearchVerticalsContainerState> {
 

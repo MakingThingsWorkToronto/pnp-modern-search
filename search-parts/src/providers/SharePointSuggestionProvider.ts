@@ -1,7 +1,7 @@
 import { BaseSuggestionProvider, ISuggestion } from "@pnp/modern-search-extensibility";
 import { IPropertyPaneGroup } from '@microsoft/sp-property-pane';
-import { ISharePointSearchService } from "../services/searchService/ISharePointSearchService";
-import { SharePointSearchService } from "../services/searchService/SharePointSearchService";
+import { ISharePointSearchService } from "../services/SearchService/ISharePointSearchService";
+import { SharePointSearchService } from "../services/SearchService/SharePointSearchService";
 import * as commonStrings from 'CommonStrings';
 
 export interface ISharePointSuggestionProviderProperties {

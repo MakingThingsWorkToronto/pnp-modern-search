@@ -21,9 +21,9 @@ import {
 } from "@microsoft/sp-property-pane";
 import SearchBoxContainer from './components/SearchBoxContainer';
 import { ISearchBoxContainerProps } from './components/ISearchBoxContainerProps';
-import { DynamicDataService } from '../../services/dynamicDataService/DynamicDataService';
+import { DynamicDataService } from '../../services/DynamicDataService/DynamicDataService';
 import { IDynamicDataCallables, IDynamicDataPropertyDefinition } from '@microsoft/sp-dynamic-data';
-import IDynamicDataService from '../../services/dynamicDataService/IDynamicDataService';
+import IDynamicDataService from '../../services/DynamicDataService/IDynamicDataService';
 import { ComponentType } from '../../common/ComponentType';
 import { ISearchBoxWebPartProps } from './ISearchBoxWebPartProps';
 import { UrlHelper, PageOpenBehavior, QueryPathBehavior } from '../../helpers/UrlHelper';
@@ -37,7 +37,7 @@ import { Toggle, IToggleProps, MessageBar, MessageBarType, Link } from "office-u
 import { ISuggestionProviderConfiguration } from '../../providers/ISuggestionProviderConfiguration';
 import { IExtensibilityConfiguration } from '../../models/common/IExtensibilityConfiguration';
 import { Constants } from '../../common/Constants';
-import { BuiltinTokenNames } from '../../services/tokenService/TokenService';
+import { BuiltinTokenNames } from '../../services/TokenService/TokenService';
 import { BaseWebPart } from '../../common/BaseWebPart';
 
 export default class SearchBoxWebPart extends BaseWebPart<ISearchBoxWebPartProps> implements IDynamicDataCallables {

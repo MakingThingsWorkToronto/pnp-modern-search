@@ -13,8 +13,8 @@ import { IDataResultsTemplateContext } from '../models/common/ITemplateContext';
 import { ObjectHelper } from '../helpers/ObjectHelper';
 import * as DOMPurify from 'dompurify';
 import { DomPurifyHelper } from '../helpers/DomPurifyHelper';
-import { ITemplateService } from '../services/templateService/ITemplateService';
-import { TemplateService } from '../services/templateService/TemplateService';
+import { ITemplateService } from '../services/TemplateService/ITemplateService';
+import { TemplateService } from '../services/TemplateService/TemplateService';
 
 const DEFAULT_SHIMMER_HEIGHT = 7;
 const SHIMMER_LINE_VS_CELL_WIDTH_RATIO = 0.95;

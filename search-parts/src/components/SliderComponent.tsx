@@ -8,8 +8,8 @@ import { MessageBar, MessageBarType } from 'office-ui-fabric-react/lib/MessageBa
 import { BaseWebComponent } from '@pnp/modern-search-extensibility';
 import { isEmpty } from "@microsoft/sp-lodash-subset";
 import * as DOMPurify from 'dompurify';
-import { ITemplateService } from '../services/templateService/ITemplateService';
-import { TemplateService } from '../services/templateService/TemplateService';
+import { ITemplateService } from '../services/TemplateService/ITemplateService';
+import { TemplateService } from '../services/TemplateService/TemplateService';
 import { DomPurifyHelper } from '../helpers/DomPurifyHelper';
 
 export interface ISliderProps {

@@ -13,13 +13,13 @@ import { ServiceScope, Guid, Text } from '@microsoft/sp-core-library';
 import { sortBy, isEmpty, uniq, cloneDeep } from "@microsoft/sp-lodash-subset";
 import { PagingBehavior } from "@pnp/modern-search-extensibility";
 import { IDataContext } from "@pnp/modern-search-extensibility";
-import { ISharePointSearchService } from "../services/searchService/ISharePointSearchService";
-import { SharePointSearchService } from "../services/searchService/SharePointSearchService";
+import { ISharePointSearchService } from "../services/SearchService/ISharePointSearchService";
+import { SharePointSearchService } from "../services/SearchService/SharePointSearchService";
 import LocalizationHelper from "../helpers/LocalizationHelper";
 import { PageContext } from "@microsoft/sp-page-context";
-import { TokenService } from "../services/tokenService/TokenService";
-import { ITaxonomyService } from "../services/taxonomyService/ITaxonomyService";
-import { TaxonomyService } from "../services/taxonomyService/TaxonomyService";
+import { TokenService } from "../services/TokenService/TokenService";
+import { ITaxonomyService } from "../services/TaxonomyService/ITaxonomyService";
+import { TaxonomyService } from "../services/TaxonomyService/TaxonomyService";
 import { ISearchResult } from "../models/search/ISearchResult";
 import { ILocalizableSearchResult, ILocalizableSearchResultProperty } from "../models/search/ILocalizableSearchResult";
 import { PropertyPaneAsyncCombo } from "../controls/PropertyPaneAsyncCombo/PropertyPaneAsyncCombo";
@@ -30,7 +30,7 @@ import { AsyncCombo } from '../controls/PropertyPaneAsyncCombo/components/AsyncC
 import { IAsyncComboProps } from '../controls/PropertyPaneAsyncCombo/components/IAsyncComboProps';
 import { DateHelper } from '../helpers/DateHelper';
 import { PropertyPaneNonReactiveTextField } from '../controls/PropertyPaneNonReactiveTextField/PropertyPaneNonReactiveTextField';
-import { ITerm } from '../services/taxonomyService/ITaxonomyItems';
+import { ITerm } from '../services/TaxonomyService/ITaxonomyItems';
 import { BuiltinFilterTemplates } from '../layouts/AvailableTemplates';
 import { DataFilterHelper } from '../helpers/DataFilterHelper';
 

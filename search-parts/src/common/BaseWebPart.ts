@@ -3,8 +3,8 @@ import {
     PropertyPaneLabel,
     PropertyPaneLink
 } from '@microsoft/sp-property-pane';
-import IExtensibilityService from '../services/extensibilityService/IExtensibilityService';
-import { ExtensibilityService } from '../services/extensibilityService/ExtensibilityService';
+import IExtensibilityService from '../services/ExtensibilityService/IExtensibilityService';
+import { ExtensibilityService } from '../services/ExtensibilityService/ExtensibilityService';
 import { IBaseWebPartProps } from "../models/common/IBaseWebPartProps";
 import * as commonStrings from 'CommonStrings';
 import { ThemeProvider, IReadonlyTheme, ThemeChangedEventArgs } from '@microsoft/sp-component-base';

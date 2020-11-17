@@ -1,7 +1,7 @@
 import { IDataFilterConfiguration, IDataFilter, IDataFilterResult } from "@pnp/modern-search-extensibility";
 import ISearchFiltersWebPartProps from "../ISearchFiltersWebPartProps";
 import { IReadonlyTheme } from '@microsoft/sp-component-base';
-import { ITemplateService } from "../../../services/templateService/ITemplateService";
+import { ITemplateService } from "../../../services/TemplateService/ITemplateService";
 import { IWebPartTitleProps } from "@pnp/spfx-controls-react/lib/WebPartTitle";
 
 export interface ISearchFiltersContainerProps {

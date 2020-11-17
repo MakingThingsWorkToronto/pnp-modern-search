@@ -1,11 +1,11 @@
 import * as React from 'react';
 import { Persona, IPersonaProps, IPersonaSharedProps, getInitials, Icon } from 'office-ui-fabric-react';
-import { TemplateService } from "../services/templateService/TemplateService";
+import { TemplateService } from "../services/TemplateService/TemplateService";
 import * as ReactDOM from 'react-dom';
 import { IReadonlyTheme } from '@microsoft/sp-component-base';
 import { ITheme } from '@uifabric/styling';
 import { BaseWebComponent } from '@pnp/modern-search-extensibility';
-import { ITemplateService } from '../services/templateService/ITemplateService';
+import { ITemplateService } from '../services/TemplateService/ITemplateService';
 import * as DOMPurify from 'dompurify';
 import { UrlHelper } from '../helpers/UrlHelper';
 import { isEmpty } from '@microsoft/sp-lodash-subset';

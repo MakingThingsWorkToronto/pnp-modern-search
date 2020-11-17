@@ -67,7 +67,8 @@ export default class SearchBoxContainer extends React.Component<ISearchBoxContai
    */
   public async _onSearch(queryText: string, isReset: boolean = false) {
 
-        super(props);
+    // Don't send empty value
+    if (queryText || isReset) {
 
       this.setState({
         searchInputValue: queryText,
@@ -77,77 +78,22 @@ export default class SearchBoxContainer extends React.Component<ISearchBoxContai
       if (this.props.searchInNewPage && !isReset && this.props.pageUrl) {
         const urlEncodedQueryText = encodeURIComponent(queryText);
 
-    private renderBasicSearchBox(): JSX.Element {
-        return (
-            <div className={styles.searchBoxWrapper}>
-                <SearchBox
-                    placeholder={this.props.placeholderText ? this.props.placeholderText : strings.SearchInputPlaceholder}
-                    theme={this.props.themeVariant as ITheme}
-                    className={styles.searchTextField}
-                    value={this.state.searchInputValue}
-                    autoComplete="off"
-                    onChange={(value) => this.setState({ searchInputValue: value })}
-                    onSearch={() => this._onSearch(this.state.searchInputValue)}
-                    onClear={() => this._onSearch('', true)}
-                />
-                <div className={styles.searchButton}>
-                    {this.state.searchInputValue &&
-                        <IconButton
-                            onClick={() => this._onSearch(this.state.searchInputValue)}
-                            iconProps={{ iconName: 'Forward' }}
-                        />
-                    }
-                </div>
-            </div>
-        );
-    }
+        const searchUrl = new URL(this.props.pageUrl);
+        let newUrl;
 
-    /**
-     * Handler when a user enters new keywords
-     * @param queryText The query text entered by the user
-     */
-    public async _onSearch(queryText: string, isReset: boolean = false) {
-
-        // Don't send empty value
-        if (queryText || isReset) {
-
-            let query = queryText;
-
-            this.setState({
-                searchInputValue: queryText,
-                showClearButton: !isReset
-            });
-
-            let element = document.activeElement as HTMLElement;
-            if (element) {
-                element.blur();
-            }
-
-            if (this.props.searchInNewPage && !isReset) {
-                const urlEncodedQueryText = encodeURIComponent(queryText);
-
-                const searchUrl = new URL(this.props.pageUrl);
-                let newUrl;
-
-                if (this.props.queryPathBehavior === QueryPathBehavior.URLFragment) {
-                    searchUrl.hash = urlEncodedQueryText;
-                    newUrl = searchUrl.href;
-                }
-                else {
-                    newUrl = UrlHelper.addOrReplaceQueryStringParam(searchUrl.href, this.props.queryStringParameter, urlEncodedQueryText);
-                }
-
-                // Send the query to the new page
-                const behavior = this.props.openBehavior === PageOpenBehavior.NewTab ? '_blank' : '_self';
-                window.open(newUrl, behavior);
-            } else {
-
-                // Notify the dynamic data controller
-                this.props.onSearch(query);
-            }
+        if (this.props.queryPathBehavior === QueryPathBehavior.URLFragment) {
+          searchUrl.hash = urlEncodedQueryText;
+          newUrl = searchUrl.href;
         }
-    }
+        else {
+          newUrl = UrlHelper.addOrReplaceQueryStringParam(searchUrl.href, this.props.queryStringParameter, urlEncodedQueryText);
+        }
 
+        // Send the query to the new page
+        const behavior = this.props.openBehavior === PageOpenBehavior.NewTab ? '_blank' : '_self';
+        window.open(newUrl, behavior);
+
+      } else {
 
         // Notify the dynamic data controller
         this.props.onSearch(queryText);
@@ -181,30 +127,14 @@ export default class SearchBoxContainer extends React.Component<ISearchBoxContai
                                         { this.state.errorMessage }</MessageBar>;
     }
 
-    public render(): React.ReactElement<ISearchBoxContainerProps> {
-        let renderErrorMessage: JSX.Element = null;
-
-        if (this.state.errorMessage) {
-            renderErrorMessage = <MessageBar messageBarType={MessageBarType.error}
-                dismissButtonAriaLabel='Close'
-                isMultiline={false}
-                onDismiss={() => {
-                    this.setState({
-                        errorMessage: null,
-                    });
-                }}
-                className={styles.errorMessage}>
-                {this.state.errorMessage}</MessageBar>;
-        }
-
-        const renderSearchBox = this.props.enableQuerySuggestions ?
-            this.renderSearchBoxWithAutoComplete() :
-            this.renderBasicSearchBox();
-        return (
-            <div className={styles.searchBox}>
-                {renderErrorMessage}
-                {renderSearchBox}
-            </div>
-        );
-    }
+    const renderSearchBox = this.props.enableQuerySuggestions ?
+                          this.renderSearchBoxWithAutoComplete() :
+                          this.renderBasicSearchBox();
+    return (
+      <div className={styles.searchBox}>
+        { renderErrorMessage }
+        { renderSearchBox }
+      </div>
+    );
+  }
 }

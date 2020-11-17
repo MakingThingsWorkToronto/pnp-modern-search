@@ -1,4 +1,4 @@
-import { ITemplateService } from "../../services/templateService/ITemplateService";
+import { ITemplateService } from "../../services/TemplateService/ITemplateService";
 
 interface ITemplateRendererProps {
 
